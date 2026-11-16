@@ -41,9 +41,9 @@ function ubTime(iso: string): string {
 // Light and dark palettes. Each topic has its own hue, used for the kicker dot
 // and for the coloured tile shown when a story has no picture.
 const LIGHT = `--bg:#f4f3ef;--card:#ffffff;--fg:#17191c;--muted:#666b73;--dim:#a2a6ad;--line:#e4e2dc;--chip:#ebe9e3;--shadow:0 1px 2px rgba(20,20,20,.05),0 4px 16px rgba(20,20,20,.04);
---ai:#7c4dff;--dev:#1f6feb;--startups:#e8590c;--tech:#0c8f7a;--mongolia:#d6336c`;
+--ai:#7c4dff;--dev:#1f6feb;--startups:#e8590c;--tech:#0c8f7a;--mongolia:#d6336c;--blogs:#b08900`;
 const DARK = `--bg:#0e0f11;--card:#17191c;--fg:#eceef1;--muted:#9aa0a8;--dim:#5c626b;--line:#25282d;--chip:#1f2226;--shadow:none;
---ai:#a28bff;--dev:#58a6ff;--startups:#ff8a3d;--tech:#2ec4a6;--mongolia:#ff6b9a`;
+--ai:#a28bff;--dev:#58a6ff;--startups:#ff8a3d;--tech:#2ec4a6;--mongolia:#ff6b9a;--blogs:#e3b341`;
 
 const CSS = `
 :root{${LIGHT}}
@@ -69,7 +69,7 @@ a{color:inherit;text-decoration:none}
 h2{display:flex;align-items:center;gap:8px;font-size:19px;letter-spacing:-.01em;margin:40px 0 14px}
 h2 i{width:10px;height:10px;border-radius:50%;background:var(--c)}
 h2 small{color:var(--dim);font-weight:500;font-size:14px}
-.t-ai{--c:var(--ai)}.t-dev{--c:var(--dev)}.t-startups{--c:var(--startups)}.t-tech{--c:var(--tech)}.t-mongolia{--c:var(--mongolia)}
+.t-ai{--c:var(--ai)}.t-dev{--c:var(--dev)}.t-startups{--c:var(--startups)}.t-tech{--c:var(--tech)}.t-mongolia{--c:var(--mongolia)}.t-blogs{--c:var(--blogs)}
 
 .bento{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
 .card{position:relative;display:flex;flex-direction:column;background:var(--card);border-radius:18px;overflow:hidden;box-shadow:var(--shadow);border:1px solid var(--line);transition:transform .15s ease}
