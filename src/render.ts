@@ -182,7 +182,7 @@ function meta(it: Ranked): string {
   const bits = [esc(host(it.url))];
   if (it.meta) bits.push(esc(it.meta));
   if (it.also?.length) bits.push(`also in ${it.also.map((s) => esc(srcById.get(s)?.name ?? s)).join(", ")}`);
-  if (it.discuss && it.discuss !== it.url) bits.push(`<a href="${esc(it.discuss)}" rel="noopener">discuss</a>`);
+  if (it.discuss && it.discuss !== it.url) bits.push(`<a href="${esc(it.discuss)}" target="_blank" rel="noopener">discuss</a>`);
   return `<div class="meta">${bits.join(" · ")}</div>`;
 }
 
@@ -192,11 +192,11 @@ function card(it: Ranked, kind: "hero" | "wide" | "tile" | "lead", showTopic: bo
   const kick = showTopic ? `${esc(shortLabel(it.topic))} · ${esc(srcName(it))}` : esc(srcName(it));
   const summary = kind !== "tile" && it.summary ? `<p>${esc(it.summary)}</p>` : "";
   return `<article class="card ${kind} t-${it.topic}">${pic(it, kind === "hero")}<div class="body">
-<div class="kick">${kick}</div><h3><a href="${esc(it.url)}" rel="noopener">${esc(it.title)}</a></h3>${summary}${meta(it)}</div></article>`;
+<div class="kick">${kick}</div><h3><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title)}</a></h3>${summary}${meta(it)}</div></article>`;
 }
 
 function row(it: Ranked): string {
-  return `<div class="row t-${it.topic}">${pic(it)}<div><h4><a href="${esc(it.url)}" rel="noopener">${esc(it.title)}</a></h4>
+  return `<div class="row t-${it.topic}">${pic(it)}<div><h4><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title)}</a></h4>
 <div class="meta">${esc(srcName(it))} · ${esc(host(it.url))}${it.meta ? ` · ${esc(it.meta)}` : ""}</div></div></div>`;
 }
 
