@@ -1,4 +1,4 @@
-import { SOURCES, SLOTS, type Source } from "./sources";
+import { SOURCES, type Source } from "./sources";
 import { parseFeed, parseHn, parseLinks, parseTldrIssue, type Item } from "./parse";
 import { renderArchive, renderBuilding, renderEdition, renderFeed, renderNotFound } from "./render";
 
@@ -74,26 +74,26 @@ async function readJson<T>(env: Env, key: string, fallback: T): Promise<T> {
   return (v as T) ?? fallback;
 }
 
-// One slot = one cron firing: fetch the sources assigned to it and stage the results.
-export async function runSlot(env: Env, slot: number, date: string, now: number): Promise<void> {
+type Collected = { items: Item[]; error?: string };
+
+// The daily run: fetch every source in parallel, then merge into the day's edition.
+export async function runDaily(env: Env, date: string, now: number): Promise<Edition> {
   const seen = new Set(await readJson<string[]>(env, "seen", []));
-  const mine = SOURCES.filter((_, i) => i % SLOTS === slot);
-  await Promise.all(
-    mine.map(async (src) => {
-      let payload: { items: Item[]; error?: string };
+  const results = await Promise.all(
+    SOURCES.map(async (src): Promise<[string, Collected]> => {
       try {
-        payload = { items: await collectSource(src, seen, now) };
+        return [src.id, { items: await collectSource(src, seen, now) }];
       } catch (e) {
-        payload = { items: [], error: String((e as Error)?.message ?? e).slice(0, 120) };
+        return [src.id, { items: [], error: String((e as Error)?.message ?? e).slice(0, 120) }];
       }
-      await env.NEWS.put(`staging:${date}:${src.id}`, JSON.stringify(payload), { expirationTtl: 3 * DAY });
     }),
   );
-  if (slot === SLOTS - 1) await assemble(env, date, now);
+  return assemble(env, date, now, new Map(results));
 }
 
-// Merge staged results into the day's edition, dedupe, and remember what was shown.
-export async function assemble(env: Env, date: string, now: number): Promise<Edition> {
+// Merge collected results into the day's edition, dedupe, and remember what was shown.
+// Running it again on the same day adds only stories not already in the edition.
+export async function assemble(env: Env, date: string, now: number, collected: Map<string, Collected>): Promise<Edition> {
   const existing = await readJson<Edition | null>(env, `edition:${date}`, null);
   const seenList = await readJson<string[]>(env, "seen", []);
   const seen = new Set(seenList);
@@ -103,13 +103,13 @@ export async function assemble(env: Env, date: string, now: number): Promise<Edi
   const newlySeen: string[] = [];
 
   for (const src of SOURCES) {
-    const staged = await readJson<{ items: Item[]; error?: string } | null>(env, `staging:${date}:${src.id}`, null);
-    if (!staged) {
+    const got = collected.get(src.id);
+    if (!got) {
       report[src.id] ??= "not run";
       continue;
     }
     let added = 0;
-    for (const it of staged.items) {
+    for (const it of got.items) {
       if (it.title === "__issue__") {
         newlySeen.push(it.url);
         continue;
@@ -120,7 +120,7 @@ export async function assemble(env: Env, date: string, now: number): Promise<Edi
       items.push(it);
       added++;
     }
-    report[src.id] = staged.error ? `error: ${staged.error}` : `${added} new`;
+    report[src.id] = got.error ? `error: ${got.error}` : `${added} new`;
   }
 
   const edition: Edition = { date, generatedAt: new Date(now).toISOString(), items, report };
@@ -151,12 +151,10 @@ const html = (body: string, maxAge = 300) =>
   });
 
 export default {
-  // Cron "*/10 23 * * *": six firings 23:00–23:50 UTC = 07:00–07:50 in Ulaanbaatar.
+  // Cron "0 23 * * *": 23:00 UTC = 07:00 the next morning in Ulaanbaatar.
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext) {
-    const slot = Math.floor(new Date(event.scheduledTime).getUTCMinutes() / 10) % SLOTS;
     // The edition is dated by the Ulaanbaatar morning it is published on.
-    const date = ubDate(event.scheduledTime - new Date(event.scheduledTime).getUTCMinutes() * 60_000);
-    ctx.waitUntil(runSlot(env, slot, date, event.scheduledTime));
+    ctx.waitUntil(runDaily(env, ubDate(event.scheduledTime), event.scheduledTime));
   },
 
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -169,20 +167,15 @@ export default {
     const latest = await env.NEWS.get("latest");
 
     if (!latest) {
-      // First visit after deploy: build the first edition one slot per page load.
-      // The page reloads itself, so opening it once is enough.
-      const now = Date.now();
-      const date = ubDate(now);
-      const step = Number((await env.NEWS.get("bootstrap")) ?? "0");
-      if (step < SLOTS) {
-        ctx.waitUntil(
-          (async () => {
-            await env.NEWS.put("bootstrap", String(step + 1), { expirationTtl: DAY });
-            await runSlot(env, step, date, now);
-          })(),
-        );
+      // First visit after deploy: build the first edition in the background.
+      // The page reloads itself until it is ready, so opening it once is enough.
+      const started = await env.NEWS.get("bootstrap");
+      if (!started) {
+        await env.NEWS.put("bootstrap", "1", { expirationTtl: 300 });
+        const now = Date.now();
+        ctx.waitUntil(runDaily(env, ubDate(now), now));
       }
-      return html(renderBuilding(Math.min(step + 1, SLOTS), SLOTS), 0);
+      return html(renderBuilding(), 0);
     }
 
     if (path === "/") {

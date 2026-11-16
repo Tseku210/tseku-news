@@ -135,12 +135,11 @@ export function renderArchive(dates: string[]): string {
   return page("news.tseku.dev · archive", `<p class="prompt">&gt; <b>archive</b></p>${list}`);
 }
 
-export function renderBuilding(step: number, total: number): string {
-  const bar = "█".repeat(step) + "░".repeat(total - step);
+export function renderBuilding(): string {
   return page(
     "news.tseku.dev · building",
-    `<p class="prompt">&gt; <b>building the first edition</b><br>&nbsp; [${bar}] step ${step} of ${total}</p>
-<p class="empty">This page reloads itself while it gathers today's stories. It can take a minute or two.</p>`,
+    `<p class="prompt">&gt; <b>building the first edition</b></p>
+<p class="empty">This page reloads itself while it gathers today's stories. It usually takes under a minute.</p>`,
     `<meta http-equiv="refresh" content="5">`,
   );
 }
