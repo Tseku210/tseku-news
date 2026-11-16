@@ -51,6 +51,3 @@ export const SOURCES: Source[] = [
   { id: "ikon-tech", name: "iKon.mn Технологи", kind: "ikon", url: "https://ikon.mn/l/7", topic: "mongolia", max: 8 },
 ];
 
-// The daily run is split into SLOTS cron firings ten minutes apart, so that each
-// firing stays inside the Workers Free plan's 10 ms CPU budget.
-export const SLOTS = 6;
