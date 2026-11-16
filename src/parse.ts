@@ -9,6 +9,8 @@ export interface Item {
   source: string; // Source.id
   meta?: string; // e.g. "6 min read" or "412 points"
   discuss?: string; // e.g. HN comments link
+  image?: string; // https thumbnail from the feed or the page's og:image
+  also?: string[]; // other Source.ids that carried the same link (a ranking signal)
 }
 
 const ENTITIES: Record<string, string> = {
@@ -75,6 +77,59 @@ function toIso(s: string | undefined): string | undefined {
   return Number.isFinite(t) ? new Date(t).toISOString() : undefined;
 }
 
+function attr(tagText: string, name: string): string | undefined {
+  const m = new RegExp(`[\\s"']${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i").exec(tagText);
+  return m ? (m[1] ?? m[2]) : undefined;
+}
+
+// Only https images, so the page never has mixed content, and no tracking pixels.
+export function imageUrl(raw: string | undefined, base?: string): string | undefined {
+  if (!raw) return undefined;
+  const u = normalizeUrl(raw, base);
+  if (!u || !u.startsWith("https://")) return undefined;
+  if (/pixel|1x1|spacer|blank\.gif|feeds\.feedburner|gravatar\.com\/avatar|\.svg(\?|$)/i.test(u)) return undefined;
+  return u.length > 600 ? undefined : u;
+}
+
+// The picture a feed entry carries: media:thumbnail, media:content, an image
+// enclosure, or the first <img> in its HTML body.
+export function feedImage(block: string): string | undefined {
+  const b = block.slice(0, 20_000);
+  for (const m of b.matchAll(/<(media:thumbnail|media:content|enclosure|itunes:image)\b[^>]*>/gi)) {
+    const t = m[0];
+    const type = attr(t, "type") ?? "";
+    const medium = attr(t, "medium") ?? "";
+    if (/video|audio/i.test(type + medium)) continue;
+    if (m[1].toLowerCase() === "enclosure" && !/^image\//i.test(type)) continue;
+    const img = imageUrl(attr(t, "url") ?? attr(t, "href"));
+    if (img) return img;
+  }
+  const body = decodeEntities(unCdata(b));
+  for (const m of body.matchAll(/<img\b[^>]*>/gi)) {
+    if (/\b(width|height)=["']?1["'\s>]/i.test(m[0])) continue;
+    const img = imageUrl(attr(m[0], "src"));
+    if (img) return img;
+  }
+  return undefined;
+}
+
+// og:image / twitter:image from the <head> of an article page.
+export function metaImage(html: string, base: string): string | undefined {
+  const found: Record<string, string> = {};
+  for (const m of html.slice(0, 200_000).matchAll(/<meta\b[^>]*>/gi)) {
+    const key = (attr(m[0], "property") ?? attr(m[0], "name") ?? "").toLowerCase();
+    if (/^(og:image(:secure_url|:url)?|twitter:image(:src)?)$/.test(key) && !found[key]) {
+      const c = attr(m[0], "content");
+      if (c) found[key] = c;
+    }
+  }
+  for (const k of ["og:image:secure_url", "og:image", "og:image:url", "twitter:image", "twitter:image:src"]) {
+    const img = imageUrl(found[k], base);
+    if (img) return img;
+  }
+  return undefined;
+}
+
 // RSS 2.0 and Atom. Only the first `limit` entries are looked at.
 export function parseFeed(xml: string, sourceId: string, limit = 20): Item[] {
   const items: Item[] = [];
@@ -102,6 +157,7 @@ export function parseFeed(xml: string, sourceId: string, limit = 20): Item[] {
       summary: clean(rawSummary, 220) || undefined,
       date: toIso(tag(b, "pubDate") ?? tag(b, "published") ?? tag(b, "updated") ?? tag(b, "dc:date")),
       source: sourceId,
+      image: feedImage(b),
     });
   }
   return items;
@@ -176,6 +232,7 @@ export function parseLinks(
   minTitle = 2,
 ): Item[] {
   const byUrl = new Map<string, string[]>();
+  const images = new Map<string, string>();
   const order: string[] = [];
   const re = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
   let m: RegExpExecArray | null;
@@ -192,6 +249,11 @@ export function parseLinks(
       order.push(url);
     }
     byUrl.get(url)!.push(...parts);
+    if (!images.has(url)) {
+      const tagText = /<img\b[^>]*>/i.exec(m[2])?.[0];
+      const img = tagText && imageUrl(attr(tagText, "data-src") ?? attr(tagText, "src"), base);
+      if (img) images.set(url, img);
+    }
   }
   const out: Item[] = [];
   for (const url of order) {
@@ -202,7 +264,7 @@ export function parseLinks(
     const title = pick === "first" ? parts[0] : [...parts].sort((a, b) => b.length - a.length)[0];
     if (title.length < minTitle) continue;
     const rest = parts.filter((p) => p !== title).join(" · ");
-    out.push({ title: clean(title, 200), url, summary: clean(rest, 200) || undefined, source: sourceId });
+    out.push({ title: clean(title, 200), url, summary: clean(rest, 200) || undefined, source: sourceId, image: images.get(url) });
   }
   return out;
 }
