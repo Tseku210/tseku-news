@@ -1,0 +1,23 @@
+name = "tseku-news"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+workers_dev = false
+
+# news.tseku.dev as a Custom Domain. Wrangler creates the DNS record on deploy,
+# as long as the tseku.dev zone is in this Cloudflare account.
+routes = [
+  { pattern = "news.tseku.dev", custom_domain = true }
+]
+
+# Daily refresh: six firings ten minutes apart, 23:00–23:50 UTC
+# = 07:00–07:50 in Ulaanbaatar. Each firing fetches a few sources and the
+# last one publishes the edition. This counts as one Cron Trigger.
+[triggers]
+crons = ["*/10 23 * * *"]
+
+[[kv_namespaces]]
+binding = "NEWS"
+id = "2ea18921fad3426780c23e82a9cf7a7b"
+
+[observability]
+enabled = true
