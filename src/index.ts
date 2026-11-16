@@ -1,5 +1,5 @@
 import { SOURCES, type Source } from "./sources";
-import { parseFeed, parseHn, parseLinks, parseTldrIssue, type Item } from "./parse";
+import { metaImage, parseFeed, parseHn, parseLinks, parseTldrIssue, type Item } from "./parse";
 import { renderArchive, renderBuilding, renderEdition, renderFeed, renderNotFound } from "./render";
 
 export interface Env {
@@ -69,6 +69,50 @@ async function collectSource(src: Source, seen: Set<string>, now: number): Promi
   return fresh.filter((i) => i.title !== "__issue__").slice(0, src.max).concat(marker);
 }
 
+// Read just the <head> of an article and take its og:image. Stops after ~150 KB.
+async function pageImage(url: string): Promise<string | undefined> {
+  const res = await fetch(url, {
+    headers: { "user-agent": UA, accept: "text/html" },
+    signal: AbortSignal.timeout(8_000),
+    cf: { cacheTtl: 3600 },
+  } as RequestInit);
+  if (!res.ok || !res.body || !/html/i.test(res.headers.get("content-type") ?? "")) {
+    await res.body?.cancel();
+    return undefined;
+  }
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  let html = "";
+  try {
+    while (html.length < 150_000) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      html += value;
+      if (/<\/head>|<body\b/i.test(html.slice(-value.length - 8))) break;
+    }
+  } finally {
+    reader.cancel().catch(() => {});
+  }
+  return metaImage(html, res.url || url);
+}
+
+// Give stories without a feed image their page's og:image, a few at a time.
+async function addImages(items: Item[], limit = 150, concurrency = 10): Promise<void> {
+  const todo = items.filter((i) => !i.image && !/news\.ycombinator\.com/.test(i.url)).slice(0, limit);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: concurrency }, async () => {
+      while (next < todo.length) {
+        const it = todo[next++];
+        try {
+          it.image = await pageImage(it.url);
+        } catch {
+          // No picture is fine; the card shows a coloured tile instead.
+        }
+      }
+    }),
+  );
+}
+
 async function readJson<T>(env: Env, key: string, fallback: T): Promise<T> {
   const v = await env.NEWS.get(key, "json");
   return (v as T) ?? fallback;
@@ -88,6 +132,11 @@ export async function runDaily(env: Env, date: string, now: number): Promise<Edi
       }
     }),
   );
+  const fresh = new Map<string, Item>();
+  for (const [, got] of results) for (const it of got.items) if (it.title !== "__issue__" && !fresh.has(it.url)) fresh.set(it.url, it);
+  await addImages([...fresh.values()]);
+  // The same link can come from several sources; copy the picture to every copy.
+  for (const [, got] of results) for (const it of got.items) it.image ??= fresh.get(it.url)?.image;
   return assemble(env, date, now, new Map(results));
 }
 
@@ -98,7 +147,7 @@ export async function assemble(env: Env, date: string, now: number, collected: M
   const seenList = await readJson<string[]>(env, "seen", []);
   const seen = new Set(seenList);
   const items: Item[] = existing?.items ? [...existing.items] : [];
-  const inEdition = new Set(items.map((i) => i.url));
+  const inEdition = new Map(items.map((i) => [i.url, i]));
   const report: Record<string, string> = { ...(existing?.report ?? {}) };
   const newlySeen: string[] = [];
 
@@ -114,8 +163,14 @@ export async function assemble(env: Env, date: string, now: number, collected: M
         newlySeen.push(it.url);
         continue;
       }
-      if (inEdition.has(it.url) || seen.has(it.url)) continue;
-      inEdition.add(it.url);
+      const dup = inEdition.get(it.url);
+      if (dup) {
+        // Carried by more than one source: remember it, it helps ranking.
+        if (dup.source !== it.source && !dup.also?.includes(it.source)) (dup.also ??= []).push(it.source);
+        continue;
+      }
+      if (seen.has(it.url)) continue;
+      inEdition.set(it.url, it);
       newlySeen.push(it.url);
       items.push(it);
       added++;
