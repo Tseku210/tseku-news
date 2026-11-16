@@ -18,5 +18,15 @@ crons = ["0 23 * * *"]
 binding = "NEWS"
 id = "2ea18921fad3426780c23e82a9cf7a7b"
 
+# Stories, search index, and reads / likes / saves / hides. Schema in migrations/.
+[[d1_databases]]
+binding = "DB"
+database_name = "tseku-news"
+database_id = "bf6342b9-4c95-4a93-b7dc-a4a8ea8743ee"
+migrations_dir = "migrations"
+
+# Secrets (not in this file): ADMIN_TOKEN (sign-in passphrase) and
+# ANTHROPIC_API_KEY (Claude Haiku briefs and personalized ranking).
+
 [observability]
 enabled = true
