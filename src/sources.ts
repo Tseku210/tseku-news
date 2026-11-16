@@ -54,5 +54,7 @@ export const SOURCES: Source[] = [
 
   // Blogs: personal writers Tseku reads. articles.xml is articles only; feed.xml also has tweets and book notes.
   { id: "sivers", name: "Derek Sivers", kind: "rss", url: "https://sive.rs/articles.xml", topic: "blogs", max: 3, weight: 1.3 },
+  { id: "dankoe", name: "Dan Koe", kind: "rss", url: "https://letters.thedankoe.com/feed", topic: "blogs", max: 3, weight: 1.3 },
+  { id: "ink-impact", name: "Ink & Impact", kind: "rss", url: "https://tushigterdene.substack.com/feed", topic: "blogs", max: 3, weight: 1.3 },
 ];
 
