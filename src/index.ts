@@ -1,9 +1,16 @@
 import { SOURCES, type Source } from "./sources";
 import { metaImage, parseFeed, parseHn, parseLinks, parseTldrIssue, type Item } from "./parse";
-import { renderArchive, renderBuilding, renderEdition, renderFeed, renderNotFound } from "./render";
+import {
+  renderArchive, renderBuilding, renderEdition, renderFeed, renderLogin, renderNotFound, renderSaved, renderSearch, renderTrends, type View,
+} from "./render";
+import { backfill, ensureIndexed, listMarked, marksFor, marksForUrls, readsByTopic, search, setMark, signalStats, type MarkKind } from "./db";
+import { isSignedIn, sameOrigin, signIn, signOutCookie } from "./auth";
+import { computeTrends } from "./trends";
 
 export interface Env {
   NEWS: KVNamespace;
+  DB: D1Database;
+  ADMIN_TOKEN?: string; // secret: sign-in passphrase
 }
 
 export interface Edition {
@@ -137,7 +144,15 @@ export async function runDaily(env: Env, date: string, now: number): Promise<Edi
   await addImages([...fresh.values()]);
   // The same link can come from several sources; copy the picture to every copy.
   for (const [, got] of results) for (const it of got.items) it.image ??= fresh.get(it.url)?.image;
-  return assemble(env, date, now, new Map(results));
+  const edition = await assemble(env, date, now, new Map(results));
+  // Copy the stories to D1 for search, trends and marks. A failure here leaves the edition as is.
+  try {
+    await ensureIndexed(env, edition);
+    await backfill(env);
+  } catch (e) {
+    console.error("indexing failed", e);
+  }
+  return edition;
 }
 
 // Merge collected results into the day's edition, dedupe, and remember what was shown.
@@ -195,11 +210,13 @@ export async function assemble(env: Env, date: string, now: number, collected: M
   return edition;
 }
 
-const html = (body: string, maxAge = 300) =>
+// Signed-in pages show the reader's own marks, so they must not be cached.
+const html = (body: string, maxAge = 300, view?: View, status = 200) =>
   new Response(body, {
+    status,
     headers: {
       "content-type": "text/html; charset=utf-8",
-      "cache-control": `public, max-age=${maxAge}`,
+      "cache-control": view?.signedIn ? "private, no-store" : `public, max-age=${maxAge}`,
       "x-content-type-options": "nosniff",
       "referrer-policy": "strict-origin-when-cross-origin",
     },
@@ -214,8 +231,14 @@ export default {
 
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
-    if (req.method !== "GET" && req.method !== "HEAD") return new Response("Method not allowed", { status: 405 });
     const path = url.pathname.replace(/\/+$/, "") || "/";
+    const signedIn = await isSignedIn(req, env);
+
+    if (req.method === "POST") return post(req, env, path, signedIn);
+    if (req.method !== "GET" && req.method !== "HEAD") return new Response("Method not allowed", { status: 405 });
+
+    if (path === "/login") return html(renderLogin(url.searchParams.has("error"), !!env.ADMIN_TOKEN), 0);
+    if (path === "/logout") return new Response(null, { status: 303, headers: { location: "/", "set-cookie": signOutCookie } });
 
     if (path === "/robots.txt") return new Response("User-agent: *\nAllow: /\n", { headers: { "content-type": "text/plain" } });
 
@@ -233,22 +256,47 @@ export default {
       return html(renderBuilding(), 0);
     }
 
-    if (path === "/") {
-      const ed = await readJson<Edition | null>(env, `edition:${latest}`, null);
-      if (!ed) return html(renderNotFound(), 60);
-      const dates = await readJson<string[]>(env, "dates", []);
-      return html(renderEdition(ed, dates, true));
-    }
-
-    const day = /^\/d\/(\d{4}-\d{2}-\d{2})$/.exec(path);
+    const day = path === "/" ? [path, latest] : /^\/d\/(\d{4}-\d{2}-\d{2})$/.exec(path);
     if (day) {
       const ed = await readJson<Edition | null>(env, `edition:${day[1]}`, null);
-      if (!ed) return new Response(renderNotFound(), { status: 404, headers: { "content-type": "text/html; charset=utf-8" } });
+      if (!ed) return html(renderNotFound(), 60, undefined, path === "/" ? 200 : 404);
       const dates = await readJson<string[]>(env, "dates", []);
-      return html(renderEdition(ed, dates, day[1] === latest), 3600);
+      const view: View = { signedIn };
+      if (signedIn) {
+        // Stories must be in D1 before they can be marked (covers editions from before D1).
+        await ensureIndexed(env, ed);
+        view.marks = await marksFor(env, ed.date);
+      }
+      return html(renderEdition(ed, dates, day[1] === latest, view), path === "/" ? 300 : 3600, view);
     }
 
-    if (path === "/archive") return html(renderArchive(await readJson<string[]>(env, "dates", [])));
+    if (path === "/archive") return html(renderArchive(await readJson<string[]>(env, "dates", []), { signedIn }), 300, { signedIn });
+
+    if (path === "/search") {
+      const q = (url.searchParams.get("q") ?? "").trim().slice(0, 200);
+      const rows = q ? await search(env, q) : [];
+      const view: View = { signedIn, marks: signedIn && rows.length ? await marksForUrls(env, rows.map((r) => r.url)) : undefined };
+      return html(renderSearch(q, rows, view), 300, view);
+    }
+
+    if (path === "/trends") {
+      const tr = await computeTrends(env, latest);
+      const reads = signedIn ? await readsByTopic(env, Date.now() - 30 * DAY * 1000) : null;
+      return html(renderTrends(tr, reads, { signedIn }), 1800, { signedIn });
+    }
+
+    if (path === "/saved") {
+      if (!signedIn) return new Response(null, { status: 303, headers: { location: "/login" } });
+      const tab = url.searchParams.get("tab") === "liked" ? "liked" : "saved";
+      const rows = await listMarked(env, tab === "liked" ? "like" : "save");
+      const stats = await signalStats(env);
+      const view: View = { signedIn, marks: rows.length ? await marksForUrls(env, rows.map((x) => x.url)) : undefined };
+      return html(
+        renderSaved(tab, rows, stats, view),
+        0,
+        view,
+      );
+    }
 
     if (path === "/feed.xml") {
       const ed = await readJson<Edition | null>(env, `edition:${latest}`, null);
@@ -264,6 +312,37 @@ export default {
       });
     }
 
-    return new Response(renderNotFound(), { status: 404, headers: { "content-type": "text/html; charset=utf-8" } });
+    return html(renderNotFound(), 60, undefined, 404);
   },
 } satisfies ExportedHandler<Env>;
+
+const KINDS = new Set<MarkKind>(["read", "like", "save", "hide"]);
+
+async function post(req: Request, env: Env, path: string, signedIn: boolean): Promise<Response> {
+  if (!sameOrigin(req)) return new Response("Forbidden", { status: 403 });
+
+  if (path === "/login") {
+    const form = await req.formData();
+    const cookie = await signIn(String(form.get("token") ?? ""), env);
+    if (!cookie) return new Response(null, { status: 303, headers: { location: "/login?error" } });
+    return new Response(null, { status: 303, headers: { location: "/", "set-cookie": cookie } });
+  }
+
+  if (!signedIn) return new Response("Sign in first", { status: 401 });
+
+  if (path === "/api/mark") {
+    let body: { url?: unknown; kind?: unknown; on?: unknown };
+    try {
+      body = await req.json();
+    } catch {
+      return new Response("Bad JSON", { status: 400 });
+    }
+    const { url, kind, on } = body;
+    if (typeof url !== "string" || url.length > 2048 || !KINDS.has(kind as MarkKind) || typeof on !== "boolean")
+      return new Response("Bad request", { status: 400 });
+    const ok = await setMark(env, url, kind as MarkKind, on, Date.now());
+    return new Response(null, { status: ok ? 204 : 404 });
+  }
+
+  return new Response("Not found", { status: 404 });
+}
