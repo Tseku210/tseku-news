@@ -142,35 +142,6 @@ export async function signalStats(env: Env): Promise<SignalStats> {
   return { first, reads: r?.reads ?? 0, likes: r?.likes ?? 0, saves: r?.saves ?? 0, hides: r?.hides ?? 0 };
 }
 
-export interface Signal {
-  title: string;
-  source: string;
-  topic: Topic;
-  read: boolean;
-  liked: boolean;
-  saved: boolean;
-  hidden: boolean;
-}
-
-// The reader's recent actions, newest first, for learning what they like.
-export async function recentSignals(env: Env, sinceMs: number, limit = 400): Promise<Signal[]> {
-  const { results } = await env.DB.prepare(
-    `SELECT s.title, s.source, s.topic, m.read_at, m.liked_at, m.saved_at, m.hidden_at FROM marks m JOIN stories s ON s.url = m.url
-     WHERE m.updated_at >= ?1 ORDER BY m.updated_at DESC LIMIT ?2`,
-  )
-    .bind(sinceMs, limit)
-    .all<{ title: string; source: string; topic: Topic; read_at: number | null; liked_at: number | null; saved_at: number | null; hidden_at: number | null }>();
-  return results.map((r) => ({
-    title: r.title,
-    source: r.source,
-    topic: r.topic,
-    read: r.read_at != null,
-    liked: r.liked_at != null,
-    saved: r.saved_at != null,
-    hidden: r.hidden_at != null,
-  }));
-}
-
 export async function marksForUrls(env: Env, urls: string[]): Promise<Map<string, Mark>> {
   const out = new Map<string, Mark>();
   for (let i = 0; i < urls.length; i += 90) {

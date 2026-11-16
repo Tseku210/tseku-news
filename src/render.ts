@@ -2,9 +2,8 @@ import { SOURCES, TOPICS } from "./sources";
 import type { Item } from "./parse";
 import type { Edition } from "./index";
 import { rank, topPicks, type Ranked } from "./rank";
-import type { Mark, StoryRow } from "./db";
+import type { Mark, SignalStats, StoryRow } from "./db";
 import type { Trends } from "./trends";
-import type { Profile } from "./ai";
 
 // Who is looking. Signed in, every story gets like / save / hide buttons and
 // opened stories are remembered; marks holds what was done to the stories shown.
@@ -161,9 +160,6 @@ footer details summary{cursor:pointer}
 .undo{grid-column:auto;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px;border:1px dashed var(--line);border-radius:18px;color:var(--dim);font-size:13.5px}
 .row.undo{border-radius:0;border-width:1px 0 0;border-style:solid}
 .undo button{appearance:none;border:0;background:var(--chip);color:var(--fg);font:inherit;font-weight:600;padding:5px 12px;border-radius:999px;cursor:pointer}
-.brief{margin:-6px 0 14px;color:var(--muted);font-size:15px;max-width:72ch}
-.brief b{color:var(--fg);font-weight:600}
-.badge{display:inline-block;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--chip);color:var(--muted);vertical-align:2px;margin-left:6px}
 .sform{display:flex;gap:8px;margin:4px 0 8px}
 .sform input{flex:1;min-width:0;font:inherit;font-size:16px;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
 .sform input:focus{outline:2px solid var(--dev);outline-offset:-1px}
@@ -180,7 +176,6 @@ footer details summary{cursor:pointer}
 .tags li,.tags a{font-size:13px;padding:4px 10px;border-radius:999px;background:var(--chip);color:var(--muted)}
 .tags a:hover{color:var(--fg)}
 .tags small{color:var(--dim);margin-left:4px}
-.tags.no li{text-decoration:line-through;text-decoration-color:var(--dim)}
 .meter{height:8px;border-radius:99px;background:var(--chip);overflow:hidden;margin:8px 0 4px}
 .meter i{display:block;height:100%;background:var(--tech);border-radius:99px}
 .spark{display:grid;grid-template-columns:150px minmax(0,1fr) 44px;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
@@ -247,7 +242,7 @@ const post=(url,kind,on)=>fetch('/api/mark',{method:'POST',headers:{'content-typ
 const opened=(box)=>{if(box.classList.contains('is-read'))return;box.classList.add('is-read');
  navigator.sendBeacon('/api/mark',new Blob([JSON.stringify({url:box.dataset.u,kind:'read',on:true})],{type:'application/json'}));};
 const hide=(box,b)=>{const u=document.createElement(box.tagName==='DIV'&&box.classList.contains('row')?'div':'div');
- u.className='undo'+(box.classList.contains('row')?' row':'');u.innerHTML='<span>Hidden. It will help rank tomorrow.</span><button type="button">Undo</button>';
+ u.className='undo'+(box.classList.contains('row')?' row':'');u.innerHTML='<span>Hidden.</span><button type="button">Undo</button>';
  box.after(u);box.hidden=true;u.querySelector('button').onclick=async()=>{if(await post(box.dataset.u,'hide',false)){box.hidden=false;b.setAttribute('aria-pressed','false');u.remove();}};};
 document.addEventListener('click',async(e)=>{
  const box=e.target.closest('[data-u]');if(!box)return;
@@ -381,8 +376,7 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
       const more = hidden.length
         ? `<details class="more"><summary>${hidden.length} more in ${esc(t.label)}</summary><div class="list">${hidden.map((it) => row(it, view)).join("")}</div></details>`
         : "";
-      const brief = ed.brief?.[t.id] ? `<p class="brief"><b>In short:</b> ${esc(ed.brief[t.id]!)}</p>` : "";
-      return `<section id="${t.id}" class="t-${t.id}"><h2><i></i>${esc(t.label)} <small>${total}</small></h2>${brief}
+      return `<section id="${t.id}" class="t-${t.id}"><h2><i></i>${esc(t.label)} <small>${total}</small></h2>
 <div class="topic">${card(lead, "lead", false, view)}${side}${more}</div></section>`;
     })
     .join("");
@@ -400,13 +394,9 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
   }).join("");
 
   const body = `<div class="intro"><h1>${esc(longDate(ed.date))}${isLatest ? "" : " <small style=\"color:var(--dim);font-weight:500\">archive</small>"}</h1>
-<p>${top.length} top stories, ${ed.items.length} in all · updated ${ubTime(ed.generatedAt)} Ulaanbaatar${
-    ed.personalized ? ` <span class="badge" title="Ranked using what you read, like, save and hide">ranked for you</span>` : ""
-  }</p></div>
+<p>${top.length} top stories, ${ed.items.length} in all · updated ${ubTime(ed.generatedAt)} Ulaanbaatar</p></div>
 ${topHtml}${sections || (top.length ? "" : `<p class="empty">Nothing new today.</p>`)}${pager}
-<footer style="border:0;margin-top:24px;padding-top:0"><details><summary>${okSources}/${SOURCES.length} sources worked today</summary><ul class="src">${srcList}</ul>${
-    ed.ai ? `<p class="note">AI: ${esc(ed.ai)}</p>` : ""
-  }</details></footer>`;
+<footer style="border:0;margin-top:24px;padding-top:0"><details><summary>${okSources}/${SOURCES.length} sources worked today</summary><ul class="src">${srcList}</ul></details></footer>`;
   return page(`news.tseku.dev · ${ed.date}`, body, "", chips, view, isLatest ? "/" : "");
 }
 
@@ -489,40 +479,19 @@ ${mine}`;
   return page("news.tseku.dev · trends", body, "", "", view, "/trends");
 }
 
-export interface Learning {
-  ready: boolean;
-  days: number;
-  positives: number;
-  needDays: number;
-  needSignals: number;
-  hides: number;
-  aiEnabled: boolean;
-}
-
-export function renderSaved(tab: "saved" | "liked", rows: StoryRow[], profile: Profile | null, learn: Learning, view: View): string {
+export function renderSaved(tab: "saved" | "liked", rows: StoryRow[], stats: SignalStats, view: View): string {
   const tabs = `<nav class="tabs"><a href="/saved"${tab === "saved" ? ` aria-current="page"` : ""}>Saved</a><a href="/saved?tab=liked"${tab === "liked" ? ` aria-current="page"` : ""}>Liked</a></nav>`;
   const list = rows.length
     ? `<div class="stack">${storyRows(rows, view)}</div>`
     : `<p class="empty">${tab === "saved" ? "Nothing saved yet. Use the bookmark on any story." : "Nothing liked yet. Use the heart on any story."}</p>`;
-  const pct = Math.round(Math.min(1, (Math.min(learn.days, learn.needDays) / learn.needDays + Math.min(learn.positives, learn.needSignals) / learn.needSignals) / 2) * 100);
-  const learning = !learn.aiEnabled
-    ? `<p>Personalized ranking needs the <code>ANTHROPIC_API_KEY</code> secret.</p>`
-    : profile && learn.ready
-      ? `<p>${esc(profile.summary)}</p>${profile.likes.length ? `<ul class="tags">${profile.likes.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : ""}${
-          profile.dislikes.length ? `<ul class="tags no" style="margin-top:8px">${profile.dislikes.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : ""
-        }<p class="note" style="margin-top:10px">Learned ${esc(profile.updated)} from ${profile.signals} stories. Relearned every morning.</p>`
-      : `<p>Still learning. Ranking switches to your interests after ${learn.needDays} days and ${learn.needSignals} opened, liked or saved stories. Until then the page uses the usual ranking.</p>
-<div class="meter"><i style="width:${pct}%"></i></div><p class="note">${Math.min(learn.days, learn.needDays)} of ${learn.needDays} days · ${Math.min(learn.positives, learn.needSignals)} of ${learn.needSignals} stories · ${learn.hides} hidden</p>`;
-  const body = `<div class="intro"><h1>Saved</h1></div>
-<div class="panel" style="margin-bottom:22px"><h3>What the ranking knows about you</h3>${learning}${
-    learn.aiEnabled ? `<form method="post" action="/api/enrich" style="margin-top:12px"><button class="btn" style="background:var(--chip);color:var(--fg);font-size:13.5px;padding:7px 14px">Rerun AI on today's edition</button></form>` : ""
-  }</div>
+  const since = stats.first ? ` since ${esc(shortDate(new Date(stats.first + 8 * 3600_000).toISOString().slice(0, 10)))}` : "";
+  const body = `<div class="intro"><h1>Saved</h1><p>${stats.reads} opened · ${stats.likes} liked · ${stats.saves} saved · ${stats.hides} hidden${since}</p></div>
 ${tabs}${list}`;
   return page("news.tseku.dev · saved", body, "", "", view, "/saved");
 }
 
 export function renderLogin(error: boolean, configured: boolean): string {
-  const body = `<div class="intro"><h1>Sign in</h1><p>Signing in turns on like, save and hide, and lets the ranking learn what you read.</p></div>
+  const body = `<div class="intro"><h1>Sign in</h1><p>Signing in turns on like, save and hide, and remembers which stories you open.</p></div>
 ${configured ? `<form class="login stack" method="post" action="/login"><input class="sform" style="font:inherit;font-size:16px;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--fg)" type="password" name="token" placeholder="Passphrase" aria-label="Passphrase" autocomplete="current-password" autofocus required>${
     error ? `<p class="err-msg" style="margin:0">That passphrase didn't match.</p>` : ""
   }<button class="btn" style="align-self:flex-start">Sign in</button></form>` : `<p class="empty">Sign-in is off until the <code>ADMIN_TOKEN</code> secret is set.</p>`}`;

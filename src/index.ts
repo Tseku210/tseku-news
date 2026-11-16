@@ -5,15 +5,12 @@ import {
 } from "./render";
 import { backfill, ensureIndexed, listMarked, marksFor, marksForUrls, readsByTopic, search, setMark, signalStats, type MarkKind } from "./db";
 import { isSignedIn, sameOrigin, signIn, signOutCookie } from "./auth";
-import { enrich, LEARN_DAYS, LEARN_MIN_SIGNALS, readiness, type Profile } from "./ai";
 import { computeTrends } from "./trends";
-import type { Topic } from "./sources";
 
 export interface Env {
   NEWS: KVNamespace;
   DB: D1Database;
   ADMIN_TOKEN?: string; // secret: sign-in passphrase
-  ANTHROPIC_API_KEY?: string; // secret: Claude Haiku briefs and personalized ranking
 }
 
 export interface Edition {
@@ -21,9 +18,6 @@ export interface Edition {
   generatedAt: string; // ISO
   items: Item[];
   report: Record<string, string>; // source id -> "12 new" | "error: …"
-  brief?: Partial<Record<Topic, string>>; // "today in short" per topic (ai.ts)
-  personalized?: boolean; // items carry interest scores from the learned profile
-  ai?: string; // status of the AI step, shown in the sources footer
 }
 
 const UA = "news.tseku.dev/1.0 (personal news digest; +https://news.tseku.dev)";
@@ -151,26 +145,14 @@ export async function runDaily(env: Env, date: string, now: number): Promise<Edi
   // The same link can come from several sources; copy the picture to every copy.
   for (const [, got] of results) for (const it of got.items) it.image ??= fresh.get(it.url)?.image;
   const edition = await assemble(env, date, now, new Map(results));
-  await finish(env, edition, now);
-  return edition;
-}
-
-// After assembling: copy the stories to D1, then add AI briefs and interest scores.
-// Either step failing leaves the edition as assembled.
-export async function finish(env: Env, edition: Edition, now: number): Promise<void> {
+  // Copy the stories to D1 for search, trends and marks. A failure here leaves the edition as is.
   try {
     await ensureIndexed(env, edition);
     await backfill(env);
   } catch (e) {
     console.error("indexing failed", e);
   }
-  try {
-    edition.ai = await enrich(env, edition, now);
-  } catch (e) {
-    edition.ai = `error: ${String((e as Error)?.message ?? e).slice(0, 120)}`;
-  }
-  console.log(`AI: ${edition.ai}`);
-  await env.NEWS.put(`edition:${edition.date}`, JSON.stringify(edition), { expirationTtl: 180 * DAY });
+  return edition;
 }
 
 // Merge collected results into the day's edition, dedupe, and remember what was shown.
@@ -252,7 +234,7 @@ export default {
     const path = url.pathname.replace(/\/+$/, "") || "/";
     const signedIn = await isSignedIn(req, env);
 
-    if (req.method === "POST") return post(req, env, ctx, path, signedIn);
+    if (req.method === "POST") return post(req, env, path, signedIn);
     if (req.method !== "GET" && req.method !== "HEAD") return new Response("Method not allowed", { status: 405 });
 
     if (path === "/login") return html(renderLogin(url.searchParams.has("error"), !!env.ADMIN_TOKEN), 0);
@@ -308,11 +290,9 @@ export default {
       const tab = url.searchParams.get("tab") === "liked" ? "liked" : "saved";
       const rows = await listMarked(env, tab === "liked" ? "like" : "save");
       const stats = await signalStats(env);
-      const r = readiness(stats, Date.now());
-      const profile = await readJson<Profile | null>(env, "profile", null);
       const view: View = { signedIn, marks: rows.length ? await marksForUrls(env, rows.map((x) => x.url)) : undefined };
       return html(
-        renderSaved(tab, rows, profile, { ...r, needDays: LEARN_DAYS, needSignals: LEARN_MIN_SIGNALS, hides: stats.hides, aiEnabled: !!env.ANTHROPIC_API_KEY }, view),
+        renderSaved(tab, rows, stats, view),
         0,
         view,
       );
@@ -338,7 +318,7 @@ export default {
 
 const KINDS = new Set<MarkKind>(["read", "like", "save", "hide"]);
 
-async function post(req: Request, env: Env, ctx: ExecutionContext, path: string, signedIn: boolean): Promise<Response> {
+async function post(req: Request, env: Env, path: string, signedIn: boolean): Promise<Response> {
   if (!sameOrigin(req)) return new Response("Forbidden", { status: 403 });
 
   if (path === "/login") {
@@ -362,15 +342,6 @@ async function post(req: Request, env: Env, ctx: ExecutionContext, path: string,
       return new Response("Bad request", { status: 400 });
     const ok = await setMark(env, url, kind as MarkKind, on, Date.now());
     return new Response(null, { status: ok ? 204 : 404 });
-  }
-
-  // Re-run the AI step on today's edition, e.g. right after adding the API key.
-  if (path === "/api/enrich") {
-    const latest = await env.NEWS.get("latest");
-    const ed = latest ? await readJson<Edition | null>(env, `edition:${latest}`, null) : null;
-    if (!ed) return new Response("No edition", { status: 404 });
-    ctx.waitUntil(finish(env, ed, Date.now()));
-    return new Response(null, { status: 303, headers: { location: "/saved" } });
   }
 
   return new Response("Not found", { status: 404 });

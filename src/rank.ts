@@ -4,9 +4,7 @@ import type { Item } from "./parse";
 // Deterministic story ranking, computed at render time so old editions get it too.
 // Signals: source weight, position in its source (feeds and TLDR issues list the
 // lead story first, HN is sorted by points), HN points, how many sources carried
-// the same link, freshness, and whether there is a picture to show. Once the
-// reader profile is learned (ai.ts), each story's 0-10 interest score moves it
-// by up to ±3, enough to outweigh source weight and lead position.
+// the same link, freshness, and whether there is a picture to show.
 
 const srcById = new Map(SOURCES.map((s) => [s.id, s]));
 
@@ -37,7 +35,6 @@ export function rank(items: Item[], now: number): Ranked[] {
         if (ageH > 36) score -= Math.min(1.5, (ageH - 36) / 48);
       }
       if (it.image) score += 0.4;
-      if (it.interest != null) score += (it.interest - 5) * 0.6;
       return { ...it, score, topic: src?.topic ?? "tech" };
     })
     .sort((a, b) => b.score - a.score);

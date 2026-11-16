@@ -11,7 +11,6 @@ npx wrangler tail     # watch the daily run
 npx tsc               # type-check
 npx wrangler d1 migrations apply tseku-news --remote   # after schema changes
 npx wrangler secret put ADMIN_TOKEN        # sign-in passphrase
-npx wrangler secret put ANTHROPIC_API_KEY  # Haiku briefs and personalized ranking
 ```
 
 Pages: `/`, `/d/YYYY-MM-DD`, `/archive`, `/search`, `/trends`, `/saved`, `/login`, `/feed.xml`, `/api/latest.json`.

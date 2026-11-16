@@ -11,7 +11,6 @@ export interface Item {
   discuss?: string; // e.g. HN comments link
   image?: string; // https thumbnail from the feed or the page's og:image
   also?: string[]; // other Source.ids that carried the same link (a ranking signal)
-  interest?: number; // 0-10 from the learned reader profile (ai.ts), once personalized
 }
 
 const ENTITIES: Record<string, string> = {
