@@ -6,7 +6,7 @@
 //   launchpad launchpad.mn home page (weekly Mongolian product launches; it has no feed)
 //   ikon      ikon.mn technology section page (Mongolian tech news)
 
-export type Topic = "ai" | "dev" | "startups" | "tech" | "mongolia";
+export type Topic = "ai" | "dev" | "startups" | "tech" | "mongolia" | "blogs";
 
 export interface Source {
   id: string;
@@ -24,6 +24,7 @@ export const TOPICS: { id: Topic; label: string }[] = [
   { id: "startups", label: "Startups" },
   { id: "tech", label: "Technology" },
   { id: "mongolia", label: "Mongolia" },
+  { id: "blogs", label: "Blogs" },
 ];
 
 export const SOURCES: Source[] = [
@@ -50,5 +51,8 @@ export const SOURCES: Source[] = [
   // Mongolia
   { id: "launchpad", name: "Launchpad.mn", kind: "launchpad", url: "https://launchpad.mn/", topic: "mongolia", max: 10, weight: 1.2 },
   { id: "ikon-tech", name: "iKon.mn Технологи", kind: "ikon", url: "https://ikon.mn/l/7", topic: "mongolia", max: 8, weight: 1.0 },
+
+  // Blogs: personal writers Tseku reads. articles.xml is articles only; feed.xml also has tweets and book notes.
+  { id: "sivers", name: "Derek Sivers", kind: "rss", url: "https://sive.rs/articles.xml", topic: "blogs", max: 3, weight: 1.3 },
 ];
 
