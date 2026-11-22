@@ -5,13 +5,14 @@
 //   hn        Hacker News front page via the Algolia API (JSON)
 //   launchpad launchpad.mn home page (weekly Mongolian product launches; it has no feed)
 //   ikon      ikon.mn technology section page (Mongolian tech news)
+//   unread    unread.today home page (Mongolian long-form media; it has no feed)
 
 export type Topic = "ai" | "dev" | "startups" | "tech" | "mongolia" | "blogs";
 
 export interface Source {
   id: string;
   name: string;
-  kind: "rss" | "tldr" | "hn" | "launchpad" | "ikon";
+  kind: "rss" | "tldr" | "hn" | "launchpad" | "ikon" | "unread";
   url: string;
   topic: Topic;
   max: number; // most items taken from this source per day
@@ -51,6 +52,7 @@ export const SOURCES: Source[] = [
   // Mongolia
   { id: "launchpad", name: "Launchpad.mn", kind: "launchpad", url: "https://launchpad.mn/", topic: "mongolia", max: 10, weight: 1.2 },
   { id: "ikon-tech", name: "iKon.mn Технологи", kind: "ikon", url: "https://ikon.mn/l/7", topic: "mongolia", max: 8, weight: 1.0 },
+  { id: "unread", name: "Unread", kind: "unread", url: "https://unread.today/", topic: "mongolia", max: 6, weight: 1.2 },
 
   // Blogs: personal writers Tseku reads. articles.xml is articles only; feed.xml also has tweets and book notes.
   { id: "sivers", name: "Derek Sivers", kind: "rss", url: "https://sive.rs/articles.xml", topic: "blogs", max: 3, weight: 1.3 },
