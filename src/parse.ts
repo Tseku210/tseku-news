@@ -268,3 +268,38 @@ export function parseLinks(
   }
   return out;
 }
+
+// unread.today home page (Mongolian long-form media; it has no feed). Every story
+// card is an element with class "unread-content": the hero, the editors' picks
+// carousel and the latest list. A card carries the /c/<slug> link, a "title"
+// element, a CSS background-image cover, and on dated cards "11 сарын 17, 2026"
+// and "5 мин". Editors' picks carry no date and can be months old, so only dated
+// cards are kept.
+export function parseUnread(html: string, sourceId: string, max: number): Item[] {
+  const out: Item[] = [];
+  const seenUrls = new Set<string>();
+  const cards = html.split(/(?=<[a-z0-9]+\b[^>]*class="[^"]*\bunread-content\b)/i).slice(1);
+  for (const raw of cards) {
+    if (out.length >= max) break;
+    const b = raw.slice(0, 6000);
+    const href = /href="((?:https:\/\/(?:www\.)?unread\.today)?\/c\/[^"#?]+)"/i.exec(b)?.[1];
+    const url = href && normalizeUrl(href, "https://unread.today/");
+    const d = /(\d{1,2}) сарын (\d{1,2}), (\d{4})/.exec(b);
+    if (!url || !d || seenUrls.has(url)) continue;
+    const title = clean(decodeEntities(stripTags(/class="title\b[^"]*"[^>]*>([\s\S]*?)<\/(?:h\d|div)>/i.exec(b)?.[1] ?? "")), 200);
+    if (title.length < 5) continue;
+    seenUrls.add(url);
+    const pad = (n: string) => n.padStart(2, "0");
+    const mins = /(\d+) мин/.exec(b)?.[1];
+    out.push({
+      title,
+      url,
+      date: new Date(`${d[3]}-${pad(d[1])}-${pad(d[2])}T00:00:00+08:00`).toISOString(),
+      source: sourceId,
+      meta: mins ? `${mins} min read` : undefined,
+      // The hero's background is a blurred "_progressive" image; data-large is the real one.
+      image: imageUrl(/data-large="([^"]+)"/i.exec(b)?.[1] ?? /background-image:\s*url\(['"]?([^'")]+)/i.exec(b)?.[1], "https://unread.today/"),
+    });
+  }
+  return out;
+}

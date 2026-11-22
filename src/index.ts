@@ -1,5 +1,5 @@
 import { SOURCES, type Source } from "./sources";
-import { metaImage, parseFeed, parseHn, parseLinks, parseTldrIssue, type Item } from "./parse";
+import { metaImage, parseFeed, parseHn, parseLinks, parseTldrIssue, parseUnread, type Item } from "./parse";
 import {
   renderArchive, renderBuilding, renderEdition, renderFeed, renderLogin, renderNotFound, renderSaved, renderSearch, renderTrends, type View,
 } from "./render";
@@ -68,6 +68,9 @@ async function collectSource(src: Source, seen: Set<string>, now: number): Promi
       break;
     case "ikon":
       items = parseLinks(await get(src.url, "text/html"), src.url, src.id, /^\/n\/[a-z0-9]+$/i, "longest", 20);
+      break;
+    case "unread":
+      items = parseUnread(await get(src.url, "text/html"), src.id, 40);
       break;
   }
   const cutoff = now - MAX_AGE_DAYS * DAY * 1000;
