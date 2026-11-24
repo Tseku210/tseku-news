@@ -4,7 +4,8 @@
 export interface Item {
   title: string;
   url: string;
-  summary?: string;
+  summary?: string; // excerpt from the feed or page
+  brief?: string; // 1–2 sentence AI summary (see summarize.ts); shown instead of the excerpt
   date?: string; // ISO
   source: string; // Source.id
   meta?: string; // e.g. "6 min read" or "412 points"
@@ -128,6 +129,31 @@ export function metaImage(html: string, base: string): string | undefined {
     if (img) return img;
   }
   return undefined;
+}
+
+// Text to summarise from an article page: its meta description plus the first
+// paragraphs of the body, about `max` characters in all.
+export function pageText(html: string, max = 2500): string {
+  let desc = "";
+  for (const m of html.slice(0, 200_000).matchAll(/<meta\b[^>]*>/gi)) {
+    const key = (attr(m[0], "property") ?? attr(m[0], "name") ?? "").toLowerCase();
+    if (key === "og:description" || key === "description" || key === "twitter:description") {
+      desc = clean(attr(m[0], "content"), 400);
+      if (desc) break;
+    }
+  }
+  const body = html.replace(/<(script|style|noscript|svg|nav|header|footer|aside|form)\b[\s\S]*?<\/\1>/gi, " ");
+  const paras: string[] = [];
+  let len = desc.length;
+  for (const m of body.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)) {
+    const t = clean(m[1]);
+    // Skip captions, bylines, cookie notes and other short bits.
+    if (t.length < 60 || t === desc) continue;
+    paras.push(t);
+    len += t.length;
+    if (len > max) break;
+  }
+  return [desc, ...paras].filter(Boolean).join("\n").slice(0, max);
 }
 
 // RSS 2.0 and Atom. Only the first `limit` entries are looked at.

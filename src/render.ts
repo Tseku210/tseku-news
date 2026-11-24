@@ -78,7 +78,8 @@ h2 small{color:var(--dim);font-weight:500;font-size:14px}
 .card h3 a::after{content:"";position:absolute;inset:0;z-index:1}
 .card h3 a:hover{text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:3px}
 .card .body{display:flex;flex-direction:column;gap:6px;padding:14px 16px 16px;flex:1}
-.card p{margin:0;color:var(--muted);font-size:14px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
+.card p{margin:0;color:var(--muted);font-size:14px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden;overflow-wrap:anywhere}
+.tile p{font-size:13.5px;-webkit-line-clamp:5}
 .kick{font-size:12px;font-weight:600;color:var(--c);text-transform:uppercase;letter-spacing:.04em}
 .meta{margin-top:auto;padding-top:4px;font-size:12.5px;color:var(--dim);overflow-wrap:anywhere}
 .meta a{position:relative;z-index:2;color:var(--muted);text-decoration:underline;text-underline-offset:2px}
@@ -92,7 +93,7 @@ h2 small{color:var(--dim);font-weight:500;font-size:14px}
 .hero .ph{top:22px;bottom:auto;font-size:30px;opacity:.35}
 .hero .body{position:relative;justify-content:flex-end;padding:24px;color:#fff}
 .hero h3{font-size:28px;line-height:1.15;letter-spacing:-.025em;-webkit-line-clamp:4}
-.hero p{color:rgba(255,255,255,.82);font-size:15px;-webkit-line-clamp:3}
+.hero p{color:rgba(255,255,255,.82);font-size:15px;-webkit-line-clamp:4}
 .hero .kick{color:#fff;opacity:.85}
 .hero .meta,.hero .meta a{color:rgba(255,255,255,.7)}
 .hero .meta,.hero .foot{margin-top:4px}
@@ -205,7 +206,7 @@ footer details summary{cursor:pointer}
   .bento>.card:not(.hero),.wide{flex-direction:row;align-items:stretch}
   .bento>.card:not(.hero) .pic{width:96px;aspect-ratio:auto}
   .bento>.card:not(.hero) .ph{font-size:13px;left:8px;bottom:6px}
-  .bento>.card:not(.hero) p{display:none}
+  .bento>.card:not(.hero) p{font-size:13.5px;-webkit-line-clamp:4}
   .bento>.card:not(.hero) h3{font-size:15px}
   .bento>.card:not(.hero) .body{padding:12px 14px}
   details.more .list{grid-template-columns:minmax(0,1fr)}
@@ -315,7 +316,8 @@ function markAttrs(it: Item, view: View): { cls: string; data: string } {
 // tile (picture on top) or lead (first story of a topic section).
 function card(it: Ranked, kind: "hero" | "wide" | "tile" | "lead", showTopic: boolean, view: View): string {
   const kick = showTopic ? `${esc(shortLabel(it.topic))} · ${esc(srcName(it))}` : esc(srcName(it));
-  const summary = kind !== "tile" && it.summary ? `<p>${esc(it.summary)}</p>` : "";
+  const text = it.brief ?? it.summary;
+  const summary = text ? `<p>${esc(text)}</p>` : "";
   const m = markAttrs(it, view);
   return `<article class="card ${kind} t-${it.topic}${m.cls}"${m.data}>${pic(it, kind === "hero")}<div class="body">
 <div class="kick">${kick}</div><h3><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title)}</a></h3>${summary}<div class="foot">${meta(it)}${acts(it, view)}</div></div></article>`;
@@ -425,7 +427,7 @@ export function renderFeed(ed: Edition | null, origin: string): string {
       const src = srcById.get(it.source);
       return `<item><title>${esc(it.title)}</title><link>${esc(it.url)}</link><guid isPermaLink="false">${esc(it.url)}</guid>${
         it.date ? `<pubDate>${new Date(it.date).toUTCString()}</pubDate>` : ""
-      }<category>${esc(src?.topic ?? "tech")}</category><description>${esc([src?.name, it.summary].filter(Boolean).join(" — "))}</description></item>`;
+      }<category>${esc(src?.topic ?? "tech")}</category><description>${esc([src?.name, it.brief ?? it.summary].filter(Boolean).join(" — "))}</description></item>`;
     })
     .join("");
   return `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>news.tseku.dev</title><link>${esc(origin)}/</link><description>Daily brief: technology, AI, software development, startups and Mongolia.</description>${

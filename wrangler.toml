@@ -25,6 +25,10 @@ database_name = "tseku-news"
 database_id = "bf6342b9-4c95-4a93-b7dc-a4a8ea8743ee"
 migrations_dir = "migrations"
 
+# Workers AI writes the short summary on each card during the daily run.
+[ai]
+binding = "AI"
+
 # Secret (not in this file): ADMIN_TOKEN, the sign-in passphrase.
 
 [observability]
