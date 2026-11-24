@@ -263,7 +263,9 @@ export default {
   // Cron "0 23 * * *": 23:00 UTC = 07:00 the next morning in Ulaanbaatar.
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext) {
     // The edition is dated by the Ulaanbaatar morning it is published on.
-    ctx.waitUntil(runDaily(env, ubDate(event.scheduledTime), event.scheduledTime));
+    // Awaited, not waitUntil: background work gets only ~30 s after the handler
+    // returns, too little for the summaries; an awaited cron run gets 15 min.
+    await runDaily(env, ubDate(event.scheduledTime), event.scheduledTime);
   },
 
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
