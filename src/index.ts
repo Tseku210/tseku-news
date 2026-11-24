@@ -261,9 +261,12 @@ const html = (body: string, maxAge = 300, view?: View, status = 200) =>
 
 export default {
   // Cron "0 23 * * *": 23:00 UTC = 07:00 the next morning in Ulaanbaatar.
-  async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext) {
+  async scheduled(event: ScheduledController, env: Env) {
     // The edition is dated by the Ulaanbaatar morning it is published on.
-    ctx.waitUntil(runDaily(env, ubDate(event.scheduledTime), event.scheduledTime));
+    // Awaited, not waitUntil: work left to waitUntil is cut off 30 s after the
+    // handler returns, which is too short once the AI summaries run. A cron
+    // handler itself may run for up to 15 minutes.
+    await runDaily(env, ubDate(event.scheduledTime), event.scheduledTime);
   },
 
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
