@@ -1,15 +1,17 @@
 import { SOURCES, type Source } from "./sources";
-import { metaImage, parseFeed, parseHn, parseLinks, parseTldrIssue, parseUnread, type Item } from "./parse";
+import { metaImage, pageText, parseFeed, parseHn, parseLinks, parseTldrIssue, parseUnread, type Item } from "./parse";
 import {
   renderArchive, renderBuilding, renderEdition, renderFeed, renderLogin, renderNotFound, renderSaved, renderSearch, renderTrends, type View,
 } from "./render";
 import { backfill, ensureIndexed, listMarked, marksFor, marksForUrls, readsByTopic, search, setMark, signalStats, type MarkKind } from "./db";
 import { isSignedIn, sameOrigin, signIn, signOutCookie } from "./auth";
 import { computeTrends } from "./trends";
+import { addBriefs, cachedBriefs } from "./summarize";
 
 export interface Env {
   NEWS: KVNamespace;
   DB: D1Database;
+  AI?: Ai; // Workers AI, for the card summaries (optional: cards fall back to excerpts)
   ADMIN_TOKEN?: string; // secret: sign-in passphrase
 }
 
@@ -79,8 +81,10 @@ async function collectSource(src: Source, seen: Set<string>, now: number): Promi
   return fresh.filter((i) => i.title !== "__issue__").slice(0, src.max).concat(marker);
 }
 
-// Read just the <head> of an article and take its og:image. Stops after ~150 KB.
-async function pageImage(url: string): Promise<string | undefined> {
+// Read an article page: its og:image, and (when `wantText`) the opening text to
+// summarise. Only the <head> is read unless text is wanted; either way it stops
+// after a few hundred KB.
+async function pageInfo(url: string, wantText: boolean): Promise<{ image?: string; text?: string }> {
   const res = await fetch(url, {
     headers: { "user-agent": UA, accept: "text/html" },
     signal: AbortSignal.timeout(8_000),
@@ -88,39 +92,54 @@ async function pageImage(url: string): Promise<string | undefined> {
   } as RequestInit);
   if (!res.ok || !res.body || !/html/i.test(res.headers.get("content-type") ?? "")) {
     await res.body?.cancel();
-    return undefined;
+    return {};
   }
+  const limit = wantText ? 400_000 : 150_000;
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
   let html = "";
   try {
-    while (html.length < 150_000) {
+    while (html.length < limit) {
       const { value, done } = await reader.read();
       if (done) break;
       html += value;
-      if (/<\/head>|<body\b/i.test(html.slice(-value.length - 8))) break;
+      if (!wantText && /<\/head>|<body\b/i.test(html.slice(-value.length - 8))) break;
     }
   } finally {
     reader.cancel().catch(() => {});
   }
-  return metaImage(html, res.url || url);
+  return { image: metaImage(html, res.url || url), text: wantText ? pageText(html) || undefined : undefined };
 }
 
-// Give stories without a feed image their page's og:image, a few at a time.
-async function addImages(items: Item[], limit = 150, concurrency = 10): Promise<void> {
-  const todo = items.filter((i) => !i.image && !/news\.ycombinator\.com/.test(i.url)).slice(0, limit);
+// Visit story pages a few at a time: give stories without a feed image their
+// og:image, and collect article text for stories that still need a summary.
+async function readPages(
+  items: Item[],
+  needsText: (it: Item) => boolean,
+  limit = 180,
+  concurrency = 10,
+): Promise<Map<string, string>> {
+  const texts = new Map<string, string>();
+  const todo = items
+    .filter((i) => !/news\.ycombinator\.com/.test(i.url))
+    .map((it) => ({ it, wantText: needsText(it) }))
+    .filter((t) => t.wantText || !t.it.image)
+    .slice(0, limit);
   let next = 0;
   await Promise.all(
     Array.from({ length: concurrency }, async () => {
       while (next < todo.length) {
-        const it = todo[next++];
+        const { it, wantText } = todo[next++];
         try {
-          it.image = await pageImage(it.url);
+          const got = await pageInfo(it.url, wantText);
+          it.image ??= got.image;
+          if (got.text) texts.set(it.url, got.text);
         } catch {
-          // No picture is fine; the card shows a coloured tile instead.
+          // No picture is fine (the card shows a coloured tile), and no text means the excerpt stays.
         }
       }
     }),
   );
+  return texts;
 }
 
 async function readJson<T>(env: Env, key: string, fallback: T): Promise<T> {
@@ -144,10 +163,25 @@ export async function runDaily(env: Env, date: string, now: number): Promise<Edi
   );
   const fresh = new Map<string, Item>();
   for (const [, got] of results) for (const it of got.items) if (it.title !== "__issue__" && !fresh.has(it.url)) fresh.set(it.url, it);
-  await addImages([...fresh.values()]);
+  // Stories summarised on an earlier run need no article text.
+  let known = new Map<string, string>();
+  try {
+    known = await cachedBriefs(env, [...fresh.keys()]);
+  } catch (e) {
+    console.error("summary cache read failed", e);
+  }
+  const texts = await readPages([...fresh.values()], (it) => !!env.AI && !known.has(it.url));
   // The same link can come from several sources; copy the picture to every copy.
   for (const [, got] of results) for (const it of got.items) it.image ??= fresh.get(it.url)?.image;
   const edition = await assemble(env, date, now, new Map(results));
+  // Summaries for the cards. The edition is published first with excerpts, then
+  // saved again with the summaries, so a model outage never holds up the news.
+  try {
+    if (await addBriefs(env, edition.items, texts, now))
+      await env.NEWS.put(`edition:${date}`, JSON.stringify(edition), { expirationTtl: 180 * DAY });
+  } catch (e) {
+    console.error("summaries failed", e);
+  }
   // Copy the stories to D1 for search, trends and marks. A failure here leaves the edition as is.
   try {
     await ensureIndexed(env, edition);
