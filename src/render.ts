@@ -137,10 +137,12 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 .sec-h small{font-weight:500;color:var(--dim);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
 .sec-h a.top{margin-left:auto;font-weight:500;font-size:12px;color:var(--dim)}
 .sec-grid{display:grid;grid-template-columns:minmax(0,2.3fr) minmax(0,1fr)}
-.sec-grid>.lead{padding:0 24px 0 0;border:0;border-right:1px solid var(--line)}
-.sec-grid>.lead h3{font-size:26px}
+.sec-main{padding-right:24px;border-right:1px solid var(--line)}
+.sec-main:only-child{border-right:0;padding-right:0}
+.sec-main .lead h3{font-size:26px}
+.sec-main>.lead:last-child,.front-main>.lead:last-child{border-bottom:0;padding-bottom:0}
 .sec-grid>.col{padding-left:24px}
-.sec-grid>.lead:only-child{border-right:0;padding-right:0}
+.trio.pair{grid-template-columns:repeat(2,minmax(0,1fr))}
 details.more{margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
 details.more summary{cursor:pointer;list-style:none;display:inline-block;font:600 11.5px/1.4 ${SANS};text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 details.more summary::after{content:" ↓"}
@@ -232,13 +234,12 @@ h2 small{color:var(--dim);font-weight:500;font-size:12px;margin-left:6px;letter-
 
 @media (max-width:960px){
   .front,.sec-grid{grid-template-columns:minmax(0,1fr)}
-  .front-main,.sec-grid>.lead{padding-right:0;border-right:0}
+  .front-main,.sec-main{padding-right:0;border-right:0}
   .front-side,.sec-grid>.col{padding-left:0;margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
   .front-side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px}
   .front-side>.story:first-child{grid-row:span 3}
   .front-side>.story+.story{margin-top:0}
   .front-side>.story:nth-child(2){border-top:0;padding-top:0}
-  .sec-grid>.lead{padding-bottom:0}
   .cols3{grid-template-columns:repeat(2,minmax(0,1fr))}
   .logo{font-size:46px}
 }
@@ -256,10 +257,10 @@ h2 small{color:var(--dim);font-weight:500;font-size:12px;margin-left:6px;letter-
   .lead{grid-template-columns:minmax(0,1fr);gap:12px}
   .lead figure{order:-1;margin:0 -16px}
   .lead figcaption{padding:0 16px}
-  .lead h3,.sec-grid>.lead h3{font-size:25px}
+  .lead h3,.sec-main .lead h3{font-size:25px}
   .lead.no-pic h3{font-size:30px}
   .lead.no-pic p{font-size:16px}
-  .trio{grid-template-columns:minmax(0,1fr);padding-top:0}
+  .trio,.trio.pair{grid-template-columns:minmax(0,1fr);padding-top:0}
   .trio>.story{padding:16px 0 0!important;margin-top:16px;border-left:0!important;border-top:1px solid var(--line)}
   .trio>.story:first-child{border-top:0;margin-top:0}
   .front-side{display:block}
@@ -435,7 +436,10 @@ function storyRows(rows: StoryRow[], view: View): string {
     .join("")}</div>`;
 }
 
-const SIDE_ROWS = 4; // stories in the column next to a section's lead; the rest fold away
+// Under a section's lead go two text stories, so the lead's column is about as tall as the
+// side column next to it; the side column holds three more and the rest fold away.
+const PAIR = 2;
+const SIDE_ROWS = 3;
 
 export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, view: View = PUBLIC): string {
   const ranked = rank(ed.items, Date.parse(ed.generatedAt)).filter((i) => !view.marks?.get(i.url)?.hidden);
@@ -476,8 +480,10 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
       const li = list.slice(0, 3).findIndex((it) => it.image);
       const items = li > 0 ? [list[li], ...list.filter((_, i) => i !== li)] : list;
       const [head, ...rest] = items;
-      const shown = rest.slice(0, SIDE_ROWS);
-      const hidden = rest.slice(SIDE_ROWS);
+      // With only a couple of stories left, keep them all in the side column.
+      const pair = rest.length > PAIR ? rest.slice(0, PAIR) : [];
+      const shown = rest.slice(pair.length, pair.length + SIDE_ROWS);
+      const hidden = rest.slice(pair.length + SIDE_ROWS);
       const col = shown.length
         ? `<div class="col">${shown.map((it, i) => story(it, { pic: i < 2 ? "thumb" : "none", tag: "h4" }, view)).join("")}</div>`
         : "";
@@ -485,7 +491,9 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
         ? `<details class="more"><summary>${hidden.length} more in ${esc(t.label)}</summary><div class="cols3">${hidden.map((it) => row(it, view)).join("")}</div></details>`
         : "";
       return `<section id="${t.id}" class="sec t-${t.id}"><h2 class="sec-h">${esc(t.label)} <small>${total} ${total === 1 ? "story" : "stories"}</small><a class="top" href="#">Top ↑</a></h2>
-<div class="sec-grid">${lead(head, false, view)}${col}</div>${more}</section>`;
+<div class="sec-grid"><div class="sec-main">${lead(head, false, view)}${
+        pair.length ? `<div class="trio pair">${pair.map((it) => story(it, {}, view)).join("")}</div>` : ""
+      }</div>${col}</div>${more}</section>`;
     })
     .join("");
 
