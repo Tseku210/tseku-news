@@ -139,10 +139,15 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 .sec-grid{display:grid;grid-template-columns:minmax(0,2.3fr) minmax(0,1fr)}
 .sec-main{padding-right:24px;border-right:1px solid var(--line)}
 .sec-main:only-child{border-right:0;padding-right:0}
+.sec-grid.solo{grid-template-columns:minmax(0,1fr)}
+.solo .lead .pic{aspect-ratio:21/9}
 .sec-main .lead h3{font-size:26px}
 .sec-main>.lead:last-child,.front-main>.lead:last-child{border-bottom:0;padding-bottom:0}
 .sec-grid>.col{padding-left:24px}
 .trio.pair{grid-template-columns:repeat(2,minmax(0,1fr))}
+.trio.across{padding-top:0}
+.story.big h3{font-size:28px;line-height:1.12;letter-spacing:-.015em}
+.story.big p{font-size:16px;-webkit-line-clamp:6}
 details.more{margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
 details.more summary{cursor:pointer;list-style:none;display:inline-block;font:600 11.5px/1.4 ${SANS};text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 details.more summary::after{content:" ↓"}
@@ -406,11 +411,11 @@ function lead(it: Ranked, showTopic: boolean, view: View): string {
 
 // A column story. pic: "top" shows the picture above the headline, "thumb" a small square
 // floated right, "none" keeps it text only. Stories without a picture are always text only.
-function story(it: Ranked, o: { pic?: "top" | "thumb" | "none"; showTopic?: boolean; tag?: "h3" | "h4" }, view: View): string {
+function story(it: Ranked, o: { pic?: "top" | "thumb" | "none"; showTopic?: boolean; tag?: "h3" | "h4"; big?: boolean }, view: View): string {
   const m = markAttrs(it, view);
   const p = it.image ? (o.pic ?? "none") : "none";
   const picHtml = p === "top" ? pic(it) : p === "thumb" ? pic(it, false, " thumb") : "";
-  return `<article class="story t-${it.topic}${p === "top" ? " pic-top" : ""}${m.cls}"${m.data}>${picHtml}${kicker(it, o.showTopic ?? false)}${headline(it, o.tag ?? "h3")}${summary(it)}
+  return `<article class="story t-${it.topic}${p === "top" ? " pic-top" : ""}${o.big ? " big" : ""}${m.cls}"${m.data}>${picHtml}${kicker(it, o.showTopic ?? false)}${headline(it, o.tag ?? "h3")}${summary(it)}
 <div class="foot">${meta(it)}${acts(it, view)}</div></article>`;
 }
 
@@ -480,6 +485,23 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
       const li = list.slice(0, 3).findIndex((it) => it.image);
       const items = li > 0 ? [list[li], ...list.filter((_, i) => i !== li)] : list;
       const [head, ...rest] = items;
+      // No picture to lead with: open with a row of text stories across the main
+      // column (the lead in larger type) so it doesn't sit beside empty space.
+      if (!head.image && rest.length) {
+        const across = [head, ...rest.slice(0, PAIR)];
+        const side = rest.slice(PAIR, PAIR + SIDE_ROWS);
+        const folded = rest.slice(PAIR + SIDE_ROWS);
+        const sideCol = side.length
+          ? `<div class="col">${side.map((it, i) => story(it, { pic: i < 2 ? "thumb" : "none", tag: "h4" }, view)).join("")}</div>`
+          : "";
+        const foldedHtml = folded.length
+          ? `<details class="more"><summary>${folded.length} more in ${esc(t.label)}</summary><div class="cols3">${folded.map((it) => row(it, view)).join("")}</div></details>`
+          : "";
+        return `<section id="${t.id}" class="sec t-${t.id}"><h2 class="sec-h">${esc(t.label)} <small>${total} ${total === 1 ? "story" : "stories"}</small><a class="top" href="#">Top ↑</a></h2>
+<div class="sec-grid${sideCol ? "" : " solo"}"><div class="sec-main"><div class="trio across${across.length === 2 ? " pair" : ""}">${across
+          .map((it, i) => story(it, { pic: "top", showTopic: false, big: i === 0 }, view))
+          .join("")}</div></div>${sideCol}</div>${foldedHtml}</section>`;
+      }
       // With only a couple of stories left, keep them all in the side column.
       const pair = rest.length > PAIR ? rest.slice(0, PAIR) : [];
       const shown = rest.slice(pair.length, pair.length + SIDE_ROWS);
@@ -491,7 +513,7 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
         ? `<details class="more"><summary>${hidden.length} more in ${esc(t.label)}</summary><div class="cols3">${hidden.map((it) => row(it, view)).join("")}</div></details>`
         : "";
       return `<section id="${t.id}" class="sec t-${t.id}"><h2 class="sec-h">${esc(t.label)} <small>${total} ${total === 1 ? "story" : "stories"}</small><a class="top" href="#">Top ↑</a></h2>
-<div class="sec-grid"><div class="sec-main">${lead(head, false, view)}${
+<div class="sec-grid${col ? "" : " solo"}"><div class="sec-main">${lead(head, false, view)}${
         pair.length ? `<div class="trio pair">${pair.map((it) => story(it, {}, view)).join("")}</div>` : ""
       }</div>${col}</div>${more}</section>`;
     })
