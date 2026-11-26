@@ -80,6 +80,11 @@ a{color:inherit;text-decoration:none}
 .mast-right a{display:grid;place-items:center;width:34px;height:34px;color:var(--muted)}
 .mast-right a:hover,.mast-right a[aria-current]{color:var(--fg);background:var(--chip)}
 .mast-right a.txt{width:auto;padding:0 10px;font:600 11px/34px ${SANS};text-transform:uppercase;letter-spacing:.08em;border:1px solid var(--line);margin-left:8px}
+.mast-right .theme{appearance:none;border:0;background:transparent;padding:0;cursor:pointer;display:grid;place-items:center;width:34px;height:34px;color:var(--muted)}
+.mast-right .theme:hover{color:var(--fg);background:var(--chip)}
+.theme .sun{display:none}
+:root[data-theme="dark"] .theme .sun{display:block}:root[data-theme="dark"] .theme .moon{display:none}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .theme .sun{display:block}:root:not([data-theme="light"]) .theme .moon{display:none}}
 .mast-right svg,.acts svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .sections{display:flex;justify-content:center;gap:4px 26px;flex-wrap:wrap;padding:9px 0;border-top:1px solid var(--line);border-bottom:3px double var(--rule);font:600 12.5px/1.4 ${SANS}}
 .sections a{color:var(--fg);white-space:nowrap}
@@ -288,12 +293,26 @@ const ICON = {
   saved: `<svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>`,
   like: `<svg viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-9.2-9.3C1.7 7.6 3.8 4.5 7 4.5c2 0 3.4 1.1 5 3 1.6-1.9 3-3 5-3 3.2 0 5.3 3.1 4.2 6.2C19.5 15.4 12 20 12 20z"/></svg>`,
   hide: `<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>`,
+  moon: `<svg class="moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>`,
+  sun: `<svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`,
 };
+
+// Light/dark switch. The page follows the device until the reader picks one; the
+// choice is kept in localStorage and applied in <head> before first paint.
+const THEME_HEAD = `<script>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>`;
+const THEME_SCRIPT = `<script>
+(()=>{const b=document.querySelector('.theme');if(!b)return;const r=document.documentElement;
+const dark=()=>r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;
+const label=()=>{const l=dark()?'Switch to light mode':'Switch to dark mode';b.title=l;b.setAttribute('aria-label',l);};
+label();b.addEventListener('click',()=>{const t=dark()?'light':'dark';r.dataset.theme=t;try{localStorage.setItem('theme',t)}catch(e){}label();});
+})();
+</script>`;
 
 function tools(view: View, here: string): string {
   const link = (href: string, label: string, icon: string) =>
     `<a href="${href}" title="${label}" aria-label="${label}"${here === href ? ` aria-current="page"` : ""}>${icon}</a>`;
-  return `<nav class="mast-right">${link("/search", "Search", ICON.search)}${link("/trends", "Trends", ICON.trends)}${
+  const theme = `<button type="button" class="theme" title="Switch light or dark" aria-label="Switch light or dark">${ICON.moon}${ICON.sun}</button>`;
+  return `<nav class="mast-right">${theme}${link("/search", "Search", ICON.search)}${link("/trends", "Trends", ICON.trends)}${
     view.signedIn ? link("/saved", "Saved and liked", ICON.saved) : `<a class="txt" href="/login">Sign in</a>`
   }</nav>`;
 }
@@ -344,7 +363,7 @@ function page(title: string, body: string, o: PageOpts = {}): string {
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,900;1,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='2' fill='%23121212'/%3E%3Ctext x='8' y='12.5' font-family='Georgia,serif' font-weight='700' font-size='12' text-anchor='middle' fill='%23fbfaf6'%3ET%3C/text%3E%3C/svg%3E">
-${o.head ?? ""}<style>${CSS}</style></head><body>
+${THEME_HEAD}${o.head ?? ""}<style>${CSS}</style></head><body>
 <header class="mast${o.big ? "" : " small"}"><div class="wrap" style="padding-bottom:0">
 <div class="mast-top"><div class="mast-left">${dateline}</div><a class="logo" href="/">${esc(MASTHEAD)}</a>${tools(view, o.here ?? "")}</div>
 <nav class="sections" aria-label="Sections">${o.sections ?? defaultSections()}</nav>
@@ -355,7 +374,7 @@ ${body}
 <a href="/archive">archive</a> · <a href="/search">search</a> · <a href="/trends">trends</a> · <a href="/feed.xml">rss</a> · <a href="/api/latest.json">json</a> · ${
     view.signedIn ? `<a href="/saved">saved</a> · <a href="/logout">sign out</a>` : `<a href="/login">sign in</a>`
   } · <a href="https://tseku.dev">tseku.dev</a></footer>
-</main>${view.signedIn ? SCRIPT : ""}</body></html>`;
+</main>${THEME_SCRIPT}${view.signedIn ? SCRIPT : ""}</body></html>`;
 }
 
 function srcName(it: Item): string {
