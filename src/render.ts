@@ -104,8 +104,8 @@ a{color:inherit;text-decoration:none}
 .meta{font:500 10.5px/1.5 ${SANS};letter-spacing:.06em;text-transform:uppercase;color:var(--dim);overflow-wrap:anywhere}
 .meta a{position:relative;z-index:2;color:var(--muted);text-decoration:underline;text-underline-offset:2px}
 .meta .rt{color:var(--muted);font-weight:600}
-.foot{display:flex;align-items:center;gap:8px;margin-top:9px}
-.foot .meta{flex:1;min-width:0}
+.foot{margin-top:9px}
+.foot .acts{margin:4px 0 -6px -7px}
 
 .pic{position:relative;aspect-ratio:3/2;overflow:hidden;background:color-mix(in srgb,var(--c,var(--dim)) 16%,var(--tint))}
 .pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:var(--tint)}
@@ -196,9 +196,15 @@ h2 small{color:var(--dim);font-weight:500;font-size:12px;margin-left:6px;letter-
 .simple li a:hover{text-decoration:underline}
 .simple li span{font:500 11px/1 ${SANS};letter-spacing:.06em;margin-left:6px}
 
-.acts{position:relative;z-index:2;display:flex;flex:none;margin:-6px -6px -6px 0}
-.acts button{appearance:none;border:0;background:transparent;color:var(--dim);width:30px;height:30px;cursor:pointer;display:grid;place-items:center;padding:0}
-.acts svg{width:16px;height:16px}
+/* Like / save / hide sit on their own line under the source line. With a mouse they
+   appear when the story is hovered or focused; a liked or saved mark always shows. */
+.acts{position:relative;z-index:2;display:flex;gap:2px;flex:none}
+.acts button{appearance:none;border:0;background:transparent;color:var(--dim);width:28px;height:28px;cursor:pointer;display:grid;place-items:center;padding:0;transition:opacity .15s,color .15s}
+.acts svg{width:15px;height:15px}
+@media (hover:hover){
+  .acts button{opacity:0}
+  .story:hover .acts button,.story:focus-within .acts button,.acts button[aria-pressed=true]{opacity:1}
+}
 .acts button:hover{background:var(--chip);color:var(--fg)}
 .acts button:focus-visible{outline:2px solid var(--link);outline-offset:1px}
 .acts [data-k=like][aria-pressed=true]{color:var(--red)}
