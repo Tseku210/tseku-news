@@ -153,6 +153,8 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 .trio.across{padding-top:0}
 .story.big h3{font-size:28px;line-height:1.12;letter-spacing:-.015em}
 .story.big p{font-size:16px;-webkit-line-clamp:6}
+.story p.ai{display:block;overflow:visible}
+.trio+.trio{margin-top:18px;border-top:1px solid var(--line)}
 details.more{margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
 details.more summary{cursor:pointer;list-style:none;display:inline-block;font:600 11.5px/1.4 ${SANS};text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 details.more summary::after{content:" ↓"}
@@ -281,6 +283,7 @@ h2 small{color:var(--dim);font-weight:500;font-size:12px;margin-left:6px;letter-
   .trio,.trio.pair{grid-template-columns:minmax(0,1fr);padding-top:0}
   .trio>.story{padding:16px 0 0!important;margin-top:16px;border-left:0!important;border-top:1px solid var(--line)}
   .trio>.story:first-child{border-top:0;margin-top:0}
+  .trio+.trio{padding-top:16px;margin-top:16px}
   .front-side{display:block}
   .front-side>.story+.story{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
   .front-side>.story:first-child h3{font-size:21px}
@@ -423,10 +426,9 @@ const kicker = (it: Ranked, showTopic: boolean) =>
   `<div class="kick">${showTopic ? `${esc(shortLabel(it.topic))} <span>· ${esc(srcName(it))}</span>` : esc(srcName(it))}</div>`;
 const headline = (it: Ranked, tag: "h3" | "h4") =>
   `<${tag}><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title)}</a></${tag}>`;
-const summary = (it: Ranked) => {
-  const text = it.brief ?? it.summary;
-  return text ? `<p>${esc(text)}</p>` : "";
-};
+// AI summaries are short and shown in full; a feed excerpt (the fallback) is clamped.
+const summary = (it: Ranked) =>
+  it.brief ? `<p class="ai">${esc(it.brief)}</p>` : it.summary ? `<p>${esc(it.summary)}</p>` : "";
 
 // The lead of a page or section: headline and summary beside a large picture.
 function lead(it: Ranked, showTopic: boolean, view: View): string {
@@ -475,19 +477,24 @@ const SIDE_ROWS = 3;
 
 export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, view: View = PUBLIC): string {
   const ranked = rank(ed.items, Date.parse(ed.generatedAt)).filter((i) => !view.marks?.get(i.url)?.hidden);
-  const top = topPicks(ranked);
+  const top = topPicks(ranked, 10);
   const topUrls = new Set(top.map((i) => i.url));
 
-  // Front page: lead with picture, three text stories under it, and on the right a
-  // picture story followed by briefs.
+  // Front page: lead with picture and two rows of three stories under it; on the right a
+  // picture story and two more. Summaries are shown in full, so the second row is what
+  // keeps the left side about as tall as the right.
   const [first, ...others] = top;
   const trio = others.slice(0, 3);
-  const side = others.slice(3);
+  const side = others.slice(3, 6);
+  const trio2 = others.slice(6, 9);
   const sideFirst = side.findIndex((it) => it.image);
   if (sideFirst > 0) side.unshift(...side.splice(sideFirst, 1));
   const front = first
     ? `<section class="front"><div class="front-main">${lead(first, true, view)}${
-        trio.length ? `<div class="trio">${trio.map((it) => story(it, { showTopic: true }, view)).join("")}</div>` : ""
+        [trio, trio2]
+          .filter((r) => r.length)
+          .map((r) => `<div class="trio">${r.map((it) => story(it, { showTopic: true }, view)).join("")}</div>`)
+          .join("")
       }</div>${
         side.length
           ? `<div class="front-side">${side.map((it, i) => story(it, { pic: i === 0 ? "top" : "none", showTopic: true }, view)).join("")}</div>`
