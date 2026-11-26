@@ -251,12 +251,14 @@ h2 small{color:var(--dim);font-weight:500;font-size:12px;margin-left:6px;letter-
 @media (max-width:640px){
   .wrap{padding:0 16px 48px}
   .mast{padding-top:8px}
-  .mast-top{grid-template-columns:1fr;grid-template-areas:"right" "logo" "left";gap:4px;padding-bottom:10px}
-  .mast-right{margin-bottom:-2px}
-  .logo,.small .logo{font-size:34px}
-  .mast-left{text-align:center}
-  .mast-left b{display:inline}
-  .mast-left b::after{content:" · ";font-weight:400}
+  .mast-top{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"logo right" "left left";align-items:center;gap:2px 8px;padding-bottom:8px}
+  .logo,.small .logo{font-size:28px;text-align:left;padding:0}
+  .mast-right{margin-right:-8px}
+  .mast-right a.txt{display:none}
+  .mast-left{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .mast-left b{font-weight:500}
+  .mast-left span{display:none}
+  .sections small{display:none}
   .sections{justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:20px;padding:10px 0}
   .sections::-webkit-scrollbar{display:none}
   .lead{grid-template-columns:minmax(0,1fr);gap:12px}
