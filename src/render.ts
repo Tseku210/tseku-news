@@ -438,11 +438,11 @@ function lead(it: Ranked, showTopic: boolean, view: View): string {
 
 // A column story. pic: "top" shows the picture above the headline, "thumb" a small square
 // floated right, "none" keeps it text only. Stories without a picture are always text only.
-function story(it: Ranked, o: { pic?: "top" | "thumb" | "none"; showTopic?: boolean; tag?: "h3" | "h4"; big?: boolean }, view: View): string {
+function story(it: Ranked, o: { pic?: "top" | "thumb" | "none"; showTopic?: boolean; tag?: "h3" | "h4"; big?: boolean; bare?: boolean }, view: View): string {
   const m = markAttrs(it, view);
   const p = it.image ? (o.pic ?? "none") : "none";
   const picHtml = p === "top" ? pic(it) : p === "thumb" ? pic(it, false, " thumb") : "";
-  return `<article class="story t-${it.topic}${p === "top" ? " pic-top" : ""}${o.big ? " big" : ""}${m.cls}"${m.data}>${picHtml}${kicker(it, o.showTopic ?? false)}${headline(it, o.tag ?? "h3")}${summary(it)}
+  return `<article class="story t-${it.topic}${p === "top" ? " pic-top" : ""}${o.big ? " big" : ""}${m.cls}"${m.data}>${picHtml}${kicker(it, o.showTopic ?? false)}${headline(it, o.tag ?? "h3")}${o.bare ? "" : summary(it)}
 <div class="foot">${meta(it)}${acts(it, view)}</div></article>`;
 }
 
@@ -490,7 +490,9 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
         trio.length ? `<div class="trio">${trio.map((it) => story(it, { showTopic: true }, view)).join("")}</div>` : ""
       }</div>${
         side.length
-          ? `<div class="front-side">${side.map((it, i) => story(it, { pic: i === 0 ? "top" : "none", showTopic: true }, view)).join("")}</div>`
+          ? `<div class="front-side">${// The picture story keeps its summary; the rest are briefs (headline and source line),
+          // so the right column stays about as tall as the lead and the three stories under it.
+          side.map((it, i) => story(it, { pic: i === 0 ? "top" : "none", showTopic: true, bare: i > 0 }, view)).join("")}</div>`
           : ""
       }</section>`
     : "";
