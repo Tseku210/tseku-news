@@ -591,8 +591,7 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
   return page(`news.tseku.dev · ${ed.date}`, body, { sections: sectionLinks, view, here: isLatest ? "/" : "", dateline, big: true });
 }
 
-// Posts as short notes in three columns, newest first: who, the post, when. Nine are shown.
-const POSTS_SHOWN = 9;
+// Posts as short notes in three columns, newest first, all shown: who, the post, when.
 
 function postAgo(iso?: string): string {
   if (!iso) return "";
@@ -614,14 +613,8 @@ function post(it: Ranked, view: View): string {
 
 function postsSection(list: Ranked[], view: View): string {
   const posts = [...list].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
-  const shown = posts.slice(0, POSTS_SHOWN);
-  const rest = posts.slice(POSTS_SHOWN);
   return `<section id="posts" class="sec t-posts"><h2 class="sec-h">Posts <small>${posts.length} from people you follow</small><a class="top" href="#">Top ↑</a></h2>
-<div class="posts">${shown.map((it) => post(it, view)).join("")}</div>${
-    rest.length
-      ? `<details class="more"><summary>${rest.length} more posts</summary><div class="posts">${rest.map((it) => post(it, view)).join("")}</div></details>`
-      : ""
-  }</section>`;
+<div class="posts">${posts.map((it) => post(it, view)).join("")}</div></section>`;
 }
 
 export function renderArchive(dates: string[], view: View = PUBLIC): string {
