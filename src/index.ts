@@ -7,6 +7,7 @@ import { backfill, ensureIndexed, listMarked, marksFor, marksForUrls, readsByTop
 import { isSignedIn, sameOrigin, signIn, signOutCookie } from "./auth";
 import { computeTrends } from "./trends";
 import { addBriefs, cachedBriefs } from "./summarize";
+import { bskyFeedUrl, mergePosts, parseBsky, parseXTimeline, xHeaders, xTimelineUrl } from "./social";
 
 export interface Env {
   NEWS: KVNamespace;
@@ -24,6 +25,7 @@ export interface Edition {
 
 const UA = "news.tseku.dev/1.0 (personal news digest; +https://news.tseku.dev)";
 const MAX_AGE_DAYS = 4;
+const SOCIAL_AGE_DAYS = 2;
 const DAY = 86_400;
 
 // Ulaanbaatar is UTC+8 with no daylight saving.
@@ -31,9 +33,9 @@ export function ubDate(ms: number): string {
   return new Date(ms + 8 * 3600_000).toISOString().slice(0, 10);
 }
 
-async function get(url: string, accept: string): Promise<string> {
+async function get(url: string, accept: string, headers: Record<string, string> = { "user-agent": UA, accept }): Promise<string> {
   const res = await fetch(url, {
-    headers: { "user-agent": UA, accept },
+    headers,
     signal: AbortSignal.timeout(15_000),
     cf: { cacheTtl: 600 },
   } as RequestInit);
@@ -74,8 +76,20 @@ async function collectSource(src: Source, seen: Set<string>, now: number): Promi
     case "unread":
       items = parseUnread(await get(src.url, "text/html"), src.id, 40);
       break;
+    case "social": {
+      // X and Bluesky side by side; the account only fails when every place it is read from fails.
+      const tries: Promise<Item[]>[] = [];
+      if (src.x) tries.push(get(xTimelineUrl(src.x), "text/html", xHeaders).then((h) => parseXTimeline(h, src.x!, src.id)));
+      if (src.bsky) tries.push(get(bskyFeedUrl(src.bsky), "application/json").then((j) => parseBsky(j, src.id)));
+      const got = await Promise.allSettled(tries);
+      const ok = got.flatMap((g) => (g.status === "fulfilled" ? [g.value] : []));
+      if (!ok.length) throw (got[0] as PromiseRejectedResult).reason;
+      items = mergePosts(ok);
+      break;
+    }
   }
-  const cutoff = now - MAX_AGE_DAYS * DAY * 1000;
+  // Posts are a day's news only while they are fresh; articles get a few days.
+  const cutoff = now - (src.kind === "social" ? SOCIAL_AGE_DAYS : MAX_AGE_DAYS) * DAY * 1000;
   const fresh = items.filter((i) => !seen.has(i.url) && (!i.date || Date.parse(i.date) >= cutoff));
   const marker = fresh.filter((i) => i.title === "__issue__");
   return fresh.filter((i) => i.title !== "__issue__").slice(0, src.max).concat(marker);
@@ -120,7 +134,7 @@ async function readPages(
 ): Promise<Map<string, string>> {
   const texts = new Map<string, string>();
   const todo = items
-    .filter((i) => !/news\.ycombinator\.com/.test(i.url))
+    .filter((i) => !/news\.ycombinator\.com/.test(i.url) && !isPost(i))
     .map((it) => ({ it, wantText: needsText(it) }))
     .filter((t) => t.wantText || !t.it.image)
     .slice(0, limit);
@@ -141,6 +155,8 @@ async function readPages(
   );
   return texts;
 }
+
+const isPost = (it: Item) => SOURCES.find((s) => s.id === it.source)?.kind === "social";
 
 async function readJson<T>(env: Env, key: string, fallback: T): Promise<T> {
   const v = await env.NEWS.get(key, "json");
