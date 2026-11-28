@@ -1,7 +1,7 @@
 import { SOURCES, TOPICS } from "./sources";
 import type { Item } from "./parse";
 import type { Edition } from "./index";
-import { rank, topPicks, type Ranked } from "./rank";
+import { coverage, important, rank, topPicks, type Personalize, type Ranked } from "./rank";
 import type { Mark, SignalStats, StoryRow } from "./db";
 import type { Trends } from "./trends";
 
@@ -10,6 +10,9 @@ import type { Trends } from "./trends";
 export interface View {
   signedIn: boolean;
   marks?: Map<string, Mark>;
+  personal?: Personalize; // the reader's own ranking (taste.ts); never set for visitors
+  cover?: Record<string, string[]>; // same story at other sources, from the daily run (taste.ts)
+  all?: boolean; // ?all: show the stories left out as filler too
 }
 const PUBLIC: View = { signedIn: false };
 
@@ -549,6 +552,7 @@ function meta(it: Ranked, withHost = true): string {
   if (it.meta) bits.push(`<span class="rt">${esc(it.meta)}</span>`);
   if (withHost && !sameAsSource(it)) bits.push(esc(host(it.url)));
   if (it.also?.length) bits.push(`also in ${it.also.map((s) => esc(srcById.get(s)?.name ?? s)).join(", ")}`);
+  if (it.related?.length) bits.push(`also covered by ${it.related.map((s) => esc(srcById.get(s)?.name ?? s)).join(", ")}`);
   if (it.discuss && it.discuss !== it.url) bits.push(`<a href="${esc(it.discuss)}" target="_blank" rel="noopener">discuss</a>`);
   return `<div class="meta">${bits.join(" · ")}</div>`;
 }
@@ -561,12 +565,12 @@ function acts(it: Item, view: View): string {
   return `<div class="acts">${btn("like", "Like", m?.liked)}${btn("save", "Save for later", m?.saved)}${btn("hide", "Hide, not interested")}</div>`;
 }
 
-function markAttrs(it: Item, view: View): { cls: string; data: string } {
+function markAttrs(it: Item & { why?: string }, view: View): { cls: string; data: string } {
   // Mongolian stories are marked as such so the browser hyphenates them as Mongolian, not English.
   const lang = /[\u0400-\u04ff]/.test(it.title) ? ` lang="mn"` : "";
   if (!view.signedIn) return { cls: "", data: lang };
   const m = view.marks?.get(it.url);
-  return { cls: m?.read ? " is-read" : "", data: ` data-u="${esc(it.url)}"${lang}` };
+  return { cls: m?.read ? " is-read" : "", data: ` data-u="${esc(it.url)}"${lang}${it.why ? ` title="${esc(it.why)}"` : ""}` };
 }
 
 const kicker = (it: Ranked, showTopic: boolean) =>
@@ -647,7 +651,12 @@ const PAIR = 2;
 const SIDE_ROWS = 3;
 
 export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, view: View = PUBLIC): string {
-  const ranked = rank(ed.items, Date.parse(ed.generatedAt)).filter((i) => !view.marks?.get(i.url)?.hidden);
+  const all = rank(ed.items, Date.parse(ed.generatedAt), view.personal, coverage(ed.items, view.cover)).filter(
+    (i) => !view.marks?.get(i.url)?.hidden,
+  );
+  // Filler stays off the page unless asked for: quick, important news first.
+  const { kept, dropped } = important(all);
+  const ranked = view.all ? all : kept;
   // Posts from people get their own section at the end and never make the front page.
   const top = topPicks(ranked.filter((i) => i.topic !== "posts" && i.topic !== "repos"), 10);
   const topUrls = new Set(top.map((i) => i.url));
@@ -752,9 +761,17 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
   const folio: [string, string, string] = [`Vol. ${vol} · No. ${no}`, esc(longDate(ed.date)), isLatest ? "Ulaanbaatar edition" : `<a href="/">Archive copy · today's paper</a>`];
   const ears: [string, string] = [
     `<b>“All the news that fits.”</b>Gathered at dawn from ${okSources} sources`,
-    `<b>${isLatest ? "Morning edition" : "Archive edition"}</b><span class="rt">${ed.items.length} stories</span> · printed ${ubTime(ed.generatedAt)} UB`,
+    `<b>${isLatest ? "Morning edition" : "Archive edition"}</b><span class="rt">${ranked.length} stories</span> · printed ${ubTime(ed.generatedAt)} UB`,
   ];
-  const body = `${front}${sections || (top.length ? "" : `<p class="empty" style="margin-top:24px">Nothing new today.</p>`)}<div class="end" aria-hidden="true">— 30 —</div>${pager}
+  const here = isLatest ? "/" : `/d/${ed.date}`;
+  const filler = dropped
+    ? `<p class="empty" style="margin-top:28px">${
+        view.all
+          ? `Showing every story, including ${dropped} weaker ${dropped === 1 ? "one" : "ones"}. <a href="${here}" style="text-decoration:underline">Important only</a>`
+          : `That's today's paper. ${dropped} weaker ${dropped === 1 ? "story was" : "stories were"} left out. <a href="${here}?all" style="text-decoration:underline">Show all</a>`
+      }</p>`
+    : "";
+  const body = `${front}${sections || (top.length ? "" : `<p class="empty" style="margin-top:24px">Nothing new today.</p>`)}<div class="end" aria-hidden="true">— 30 —</div>${filler}${pager}
 <footer style="border:0;margin-top:20px;padding-top:0"><details><summary>${okSources}/${SOURCES.length} sources worked today</summary><ul class="src">${srcList}</ul></details></footer>`;
   return page(`news.tseku.dev · ${ed.date}`, body, { sections: sectionLinks, view, here: isLatest ? "/" : "", folio, ears, big: true });
 }
@@ -923,14 +940,32 @@ ${mine}`;
   return page("news.tseku.dev · trends", body, { view, here: "/trends" });
 }
 
-export function renderSaved(tab: "saved" | "liked", rows: StoryRow[], stats: SignalStats, view: View): string {
+export interface TasteView {
+  likes: string[];
+  hides: string[];
+  words: string[];
+  signals: number;
+}
+
+// What the personal ranking has learned, so it isn't a black box.
+function tastePanel(t: TasteView | null): string {
+  if (!t) return "";
+  const line = (label: string, xs: string[]) => (xs.length ? `<p style="margin:4px 0"><b>${label}</b> ${xs.map(esc).join(", ")}</p>` : "");
+  const learned = line("More from", t.likes) + line("Less from", t.hides) + line("Stories about", t.words);
+  const note = t.signals < 20
+    ? "Still learning: your likes, saves and hides only nudge the order until there are about 20 of them."
+    : "Your front page and sections are ordered with this. Visitors see the default order.";
+  return `<section><h2>Your ranking</h2><div class="panel">${learned || `<p style="margin:4px 0">Nothing clear yet.</p>`}<p style="margin:8px 0 0;color:var(--dim)">${note} Hover a story to see why it moved.</p></div></section>`;
+}
+
+export function renderSaved(tab: "saved" | "liked", rows: StoryRow[], stats: SignalStats, view: View, taste: TasteView | null = null): string {
   const tabs = `<nav class="tabs"><a href="/saved"${tab === "saved" ? ` aria-current="page"` : ""}>Saved</a><a href="/saved?tab=liked"${tab === "liked" ? ` aria-current="page"` : ""}>Liked</a></nav>`;
   const list = rows.length
     ? storyRows(rows, view)
     : `<p class="empty">${tab === "saved" ? "Nothing saved yet. Use the bookmark on any story." : "Nothing liked yet. Use the heart on any story."}</p>`;
   const since = stats.first ? ` since ${esc(shortDate(new Date(stats.first + 8 * 3600_000).toISOString().slice(0, 10)))}` : "";
   const body = `<div class="intro"><h1>Saved</h1><p>${stats.reads} opened · ${stats.likes} liked · ${stats.saves} saved · ${stats.hides} hidden${since}</p></div>
-${tabs}${list}`;
+${tabs}${list}${tastePanel(taste)}`;
   return page("news.tseku.dev · saved", body, { view, here: "/saved" });
 }
 
