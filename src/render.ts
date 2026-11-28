@@ -45,15 +45,22 @@ function shortDate(d: string): string {
   return new Date(`${d}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 }
 
+// Paper grain: a faint noise tile under everything, dark specks on paper and light ones at night.
+const grain = (rgb: string, a: number) =>
+  `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 ${rgb} 0 0 0 0 ${rgb} 0 0 0 0 ${rgb} ${a} 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
+const GRAIN_LIGHT = grain("0", 0.05);
+const GRAIN_DARK = grain("1", 0.045);
+
 // Newsprint palettes. Topic hues survive only in small places (trend charts,
 // the tint behind a story that has no picture) so the page stays black on paper.
-const LIGHT = `--bg:#fbfaf6;--fg:#121212;--ink:#121212;--muted:#555350;--dim:#8a8781;--line:#dcd9d2;--rule:#121212;--chip:#efede7;--tint:#e9e6de;--link:#326891;--red:#c2281f;
+const LIGHT = `--bg:#fbfaf6;--fg:#121212;--ink:#121212;--muted:#555350;--dim:#8a8781;--line:#dcd9d2;--rule:#121212;--chip:#efede7;--tint:#e9e6de;--link:#326891;--red:#c2281f;--grain:${GRAIN_LIGHT};
 --ai:#6f4bd8;--dev:#1f62c9;--startups:#c4530f;--tech:#0c7f6c;--mongolia:#bf2e61;--blogs:#957400;--repos:#24292f;--posts:#3d3d3d`;
-const DARK = `--bg:#121212;--fg:#e9e6df;--ink:#f1eee8;--muted:#aaa69e;--dim:#77746e;--line:#2d2c2a;--rule:#cfcbc2;--chip:#1e1e1d;--tint:#1c1c1b;--link:#8fb8dc;--red:#ff6a5c;
+const DARK = `--bg:#121212;--fg:#e9e6df;--ink:#f1eee8;--muted:#aaa69e;--dim:#77746e;--line:#2d2c2a;--rule:#cfcbc2;--chip:#1e1e1d;--tint:#1c1c1b;--link:#8fb8dc;--red:#ff6a5c;--grain:${GRAIN_DARK};
 --ai:#a28bff;--dev:#58a6ff;--startups:#ff8a3d;--tech:#2ec4a6;--mongolia:#ff6b9a;--blogs:#e3b341;--repos:#c9d1d9;--posts:#b9b5ad`;
 
 const SERIF = `"Source Serif 4","Source Serif Pro",Georgia,"Times New Roman",serif`;
 const DISPLAY = `"Playfair Display",${SERIF}`;
+const BLACKLETTER = `"UnifrakturMaguntia","Old English Text MT",${DISPLAY}`;
 const SANS = `"Libre Franklin","Franklin Gothic Medium","Helvetica Neue",Arial,sans-serif`;
 
 const CSS = `
@@ -62,31 +69,41 @@ const CSS = `
 :root[data-theme="dark"]{${DARK}}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;scroll-padding-top:12px}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 ${SERIF};-webkit-font-smoothing:antialiased}
+body{margin:0;background:var(--grain),var(--bg);color:var(--fg);font:16px/1.5 ${SERIF};-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
 .wrap{max-width:1200px;margin:0 auto;padding:0 24px 64px}
 .t-ai{--c:var(--ai)}.t-dev{--c:var(--dev)}.t-startups{--c:var(--startups)}.t-tech{--c:var(--tech)}.t-mongolia{--c:var(--mongolia)}.t-blogs{--c:var(--blogs)}.t-repos{--c:var(--repos)}.t-posts{--c:var(--posts)}
 
-/* Masthead: date and edition on the left, nameplate in the middle, tools on the right,
-   section links under a double rule. */
-.mast{padding:14px 0 0}
-.mast-top{display:grid;grid-template-columns:1fr auto 1fr;grid-template-areas:"left logo right";align-items:end;gap:16px;padding-bottom:12px}
-.mast-left{grid-area:left;font:500 12.5px/1.45 ${SANS};color:var(--fg)}
-.mast-left b{display:block;font-weight:700}
-.mast-left span{color:var(--muted)}
-.logo{grid-area:logo;font:900 58px/1 ${DISPLAY};letter-spacing:-.01em;color:var(--ink);text-align:center;white-space:nowrap;padding:0 8px}
-.small .logo{font-size:38px}
-.mast-right{grid-area:right;display:flex;justify-content:flex-end;align-items:center;gap:2px}
+/* Masthead, as on a broadsheet: a thin tools bar, then the nameplate between two
+   boxed "ears", then the folio line (volume and number, date, city) between a thin
+   rule and a double rule, then the section links. */
+.mast{padding:6px 0 0}
+.util{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:34px}
+.util-l{font:500 11px/1.3 ${SANS};letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.util-l a:hover{color:var(--fg);text-decoration:underline;text-underline-offset:3px}
+.plate{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:20px;padding:4px 0 12px}
+.ear{justify-self:start;max-width:220px;padding:7px 10px;border:1px solid var(--rule);font:400 11.5px/1.35 ${SANS};color:var(--muted);text-align:center}
+.ear b{display:block;font:700 italic 15px/1.2 ${SERIF};color:var(--ink);margin-bottom:2px}
+.ear.r{justify-self:end}
+.ear .rt{font-weight:700;color:var(--fg)}
+.logo{font:400 76px/1 ${BLACKLETTER};color:var(--ink);text-align:center;white-space:nowrap;padding:0 4px;letter-spacing:.005em}
+.small .plate{grid-template-columns:minmax(0,1fr);padding:0 0 8px}
+.small .logo{font-size:48px}
+.folio{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;padding:6px 0 5px;border-top:1px solid var(--rule);border-bottom:4px double var(--rule);font:600 11px/1.4 ${SANS};letter-spacing:.1em;text-transform:uppercase;color:var(--fg)}
+.folio>:last-child{text-align:right}
+.folio>:nth-child(2){font:600 13px/1.4 ${SERIF};letter-spacing:.02em;text-transform:none}
+.folio a{text-decoration:underline;text-underline-offset:3px}
+.mast-right{display:flex;justify-content:flex-end;align-items:center;gap:2px;margin-right:-8px}
 .mast-right a{display:grid;place-items:center;width:34px;height:34px;color:var(--muted)}
 .mast-right a:hover,.mast-right a[aria-current]{color:var(--fg);background:var(--chip)}
-.mast-right a.txt{width:auto;padding:0 10px;font:600 11px/34px ${SANS};text-transform:uppercase;letter-spacing:.08em;border:1px solid var(--line);margin-left:8px}
+.mast-right a.txt{width:auto;padding:0 10px;font:600 11px/26px ${SANS};text-transform:uppercase;letter-spacing:.08em;border:1px solid var(--line);margin:0 8px 0 8px;height:28px}
 .mast-right .theme{appearance:none;border:0;background:transparent;padding:0;cursor:pointer;display:grid;place-items:center;width:34px;height:34px;color:var(--muted)}
 .mast-right .theme:hover{color:var(--fg);background:var(--chip)}
 .theme .sun{display:none}
 :root[data-theme="dark"] .theme .sun{display:block}:root[data-theme="dark"] .theme .moon{display:none}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .theme .sun{display:block}:root:not([data-theme="light"]) .theme .moon{display:none}}
 .mast-right svg,.acts svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.sections{display:flex;justify-content:center;gap:4px 26px;flex-wrap:wrap;padding:9px 0;border-top:1px solid var(--line);border-bottom:3px double var(--rule);font:600 12.5px/1.4 ${SANS}}
+.sections{display:flex;justify-content:center;gap:4px 26px;flex-wrap:wrap;padding:9px 0;border-bottom:1px solid var(--rule);font:600 12.5px/1.4 ${SANS}}
 .sections a{color:var(--fg);white-space:nowrap}
 .sections a:hover{text-decoration:underline;text-underline-offset:3px}
 .sections small{color:var(--dim);font-weight:500;margin-left:5px}
@@ -95,12 +112,13 @@ a{color:inherit;text-decoration:none}
 .kick{font:700 10.5px/1.3 ${SANS};text-transform:uppercase;letter-spacing:.09em;color:var(--fg);margin:0 0 6px}
 .kick span{color:var(--muted);font-weight:500}
 .story{position:relative}
-.story h3,.story h4{margin:0;font-family:${SERIF};font-weight:700;color:var(--ink);overflow-wrap:anywhere;letter-spacing:-.005em}
+.story h3,.story h4{margin:0;font-family:${SERIF};font-weight:700;color:var(--ink);overflow-wrap:anywhere;letter-spacing:-.005em;text-wrap:balance}
+.story h3 a,.story h4 a{background:linear-gradient(currentColor,currentColor) 0 100%/0 1px no-repeat;-webkit-box-decoration-break:clone;box-decoration-break:clone;transition:background-size .35s cubic-bezier(.2,.7,.2,1)}
 .story h3{font-size:20px;line-height:1.2}
 .story h4{font-size:16.5px;line-height:1.25}
 .story h3 a::after,.story h4 a::after{content:"";position:absolute;inset:0;z-index:1}
-.story:hover h3 a,.story:hover h4 a{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
-.story p{margin:7px 0 0;font-size:15px;line-height:1.45;color:var(--muted);overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
+.story:hover h3 a,.story:hover h4 a,.story h3 a:focus-visible,.story h4 a:focus-visible{background-size:100% 1px}
+.story p{margin:7px 0 0;font-size:15px;line-height:1.45;color:var(--muted);overflow-wrap:break-word;text-align:justify;-webkit-hyphens:auto;hyphens:auto;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
 .meta{font:500 10.5px/1.5 ${SANS};letter-spacing:.06em;text-transform:uppercase;color:var(--dim);overflow-wrap:anywhere}
 .meta a{position:relative;z-index:2;color:var(--muted);text-decoration:underline;text-underline-offset:2px}
 .meta .rt{color:var(--muted);font-weight:600}
@@ -121,13 +139,27 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 .front{display:grid;grid-template-columns:minmax(0,2.3fr) minmax(0,1fr);margin-top:20px}
 .front-main{padding-right:24px;border-right:1px solid var(--line)}
 .front-side{padding-left:24px}
-.lead{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.75fr);gap:24px;padding-bottom:20px;border-bottom:1px solid var(--line)}
+.lead{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);column-gap:24px;padding-bottom:20px;border-bottom:1px solid var(--line)}
+.lead-head{grid-column:1/-1;margin-bottom:14px}
 .lead .lead-text{display:flex;flex-direction:column}
-.lead h3{font-size:30px;line-height:1.12;letter-spacing:-.015em}
-.lead p{font-size:16px;-webkit-line-clamp:7}
+.lead h3{font-size:42px;line-height:1.06;letter-spacing:-.02em}
+.lead .lead-text>p{display:block;margin-top:0;font-size:16.5px;line-height:1.5;color:var(--fg)}
 .lead.no-pic{grid-template-columns:minmax(0,1fr)}
-.lead.no-pic h3{font-size:40px;max-width:24ch}
-.lead.no-pic p{font-size:18px;max-width:60ch}
+.lead.no-pic h3{font-size:46px;max-width:22ch}
+.lead.no-pic .lead-text>p{font-size:18px;max-width:62ch}
+/* Drop cap on the opening paragraph of a lead. */
+.lead .lead-text>p::first-letter{float:left;font:900 4.1em/.8 ${DISPLAY};margin:.06em .08em -.05em 0;color:var(--ink)}
+.jump{display:block;margin-top:10px;font:italic 400 13.5px/1.4 ${SERIF};color:var(--muted)}
+.jump a{white-space:nowrap;position:relative;z-index:2;color:var(--fg);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+.jump a:hover{text-decoration-thickness:2px}
+/* Pull quote: the newest post, set large between heavy rules. */
+.pull{position:relative;margin:20px 0 0;padding:16px 0 14px;border-top:3px solid var(--rule);border-bottom:1px solid var(--rule)}
+.pull blockquote{margin:0;font:italic 600 22px/1.28 ${DISPLAY};color:var(--ink);text-wrap:pretty;overflow-wrap:break-word}
+.pull blockquote::before{content:"\\201C";display:block;height:.5em;margin:-.05em 0 .05em;font:900 64px/1 ${DISPLAY};color:var(--red)}
+.pull blockquote a::after{content:"";position:absolute;inset:0}
+.pull figcaption{display:flex;align-items:center;gap:8px;margin-top:12px;text-align:left;font:600 11px/1.3 ${SANS};letter-spacing:.08em;text-transform:uppercase;color:var(--fg)}
+.pull figcaption img{width:26px;height:26px;border-radius:50%;object-fit:cover}
+.pull figcaption span{color:var(--dim);font-weight:500}
 .trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding-top:18px}
 .trio>.story{padding:0 18px}
 .trio>.story:first-child{padding-left:0}
@@ -135,18 +167,23 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 .trio>.story+.story{border-left:1px solid var(--line)}
 .front-side>.story+.story,.col>.story+.story{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
 .front-side>.story:first-child h3{font-size:23px}
+[lang=mn] p,p[lang=mn]{text-align:left!important}
 
 /* Topic sections */
 .sec{margin-top:44px}
-.sec-h{display:flex;align-items:baseline;gap:10px;margin:0 0 16px;padding-top:9px;border-top:2px solid var(--rule);font:700 15px/1.3 ${SANS};letter-spacing:.01em}
-.sec-h small{font-weight:500;color:var(--dim);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
-.sec-h a.top{margin-left:auto;font-weight:500;font-size:12px;color:var(--dim)}
+.sec-h{display:flex;align-items:baseline;gap:12px;margin:0 0 18px;padding:14px 0 8px;border-bottom:1px solid var(--line);font:900 30px/1.1 ${DISPLAY};letter-spacing:-.01em;color:var(--ink);
+  background:linear-gradient(var(--rule),var(--rule)) 0 0/100% 3px no-repeat,linear-gradient(var(--rule),var(--rule)) 0 5px/100% 1px no-repeat}
+.sec-h small{font:500 11.5px/1.3 ${SANS};color:var(--dim);letter-spacing:.08em;text-transform:uppercase}
+.sec-h .pg{margin-left:auto;font:600 11px/1.3 ${SANS};letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.sec-h .pg+a.top{margin-left:0}
+.sec-h a.top{margin-left:auto;font:500 12px/1.3 ${SANS};color:var(--dim)}
+.sec-h a.top:hover{color:var(--fg)}
 .sec-grid{display:grid;grid-template-columns:minmax(0,2.3fr) minmax(0,1fr)}
 .sec-main{padding-right:24px;border-right:1px solid var(--line)}
 .sec-main:only-child{border-right:0;padding-right:0}
 .sec-grid.solo{grid-template-columns:minmax(0,1fr)}
 .solo .lead .pic{aspect-ratio:21/9}
-.sec-main .lead h3{font-size:26px}
+.sec-main .lead h3{font-size:32px}
 .sec-main>.lead:last-child,.front-main>.lead:last-child{border-bottom:0;padding-bottom:0}
 .sec-grid>.col{padding-left:24px}
 .trio.pair{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -160,7 +197,7 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 /* Rows: compact stories in lists (more, search, saved) */
 .list{display:flex;flex-direction:column}
 .list>.row:first-child{border-top:0}
-.repos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:32px;margin-top:6px}
+.repos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:32px;margin-top:6px;background:linear-gradient(var(--line),var(--line)) 50% 0/1px 100% no-repeat}
 .repo{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--line)}
 .repo-n{flex:none;width:30px;font:italic 700 28px/1 ${DISPLAY};color:var(--dim);text-align:right;padding-top:2px}
 .repo-body{flex:1;min-width:0}
@@ -175,8 +212,8 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 .repo-facts .lang{display:inline-flex;align-items:center;gap:6px}
 .repo-facts .lang i{width:10px;height:10px;border-radius:50%;display:inline-block}
 .repo-facts .stars{font-weight:700;color:var(--fg)}
-.posts{display:block;columns:3;column-gap:20px;margin-top:14px}
-.post{break-inside:avoid;margin:0 0 20px;padding:14px 16px 12px;border:1px solid var(--line);border-top:3px double var(--rule);background:var(--bg)}
+.posts{display:block;columns:3;column-gap:40px;column-rule:1px solid var(--line);margin-top:6px}
+.post{break-inside:avoid;margin:0 0 18px;padding:0 0 14px;border-bottom:1px solid var(--line)}
 .post header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .post .face{position:relative;flex:none;width:38px;height:38px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:var(--chip);border:1px solid var(--line);font:italic 700 17px/1 ${DISPLAY};color:var(--muted)}
 .post .face img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
@@ -184,11 +221,11 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 .post .who b{font:700 15px/1.25 ${SERIF};color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .post .who span{font:500 11.5px/1.3 ${SANS};color:var(--dim);letter-spacing:.02em}
 .post .net{flex:none;align-self:flex-start;font:600 10.5px/1.6 ${SANS};letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
-.post p{font:400 16px/1.5 ${SERIF};margin:0 0 10px;white-space:pre-line;overflow-wrap:anywhere}
+.post p{font:400 16px/1.5 ${SERIF};margin:0 0 10px;text-align:left;white-space:pre-line;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
 .post p a{color:var(--fg);text-decoration:none}
 .post p a:hover{text-decoration:underline;text-underline-offset:3px}
 .post .pic{aspect-ratio:16/9;margin:0 0 10px;border:1px solid var(--line)}
-.post .foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:8px;border-top:1px solid var(--line)}
+.post .foot{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .post .foot .acts{margin:-4px -6px -4px 0}
 .quote{display:block;margin:0 0 12px;padding:10px 12px;border:1px solid var(--line);border-left:3px solid var(--rule);background:var(--tint);color:var(--fg);text-decoration:none}
 .quote:hover{border-color:var(--muted);border-left-color:var(--rule)}
@@ -200,10 +237,11 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 .post .meta a{position:static}
 .briefs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:28px;margin-top:22px;border-top:1px solid var(--rule)}
 .briefs-h{grid-column:1/-1;margin:0;padding:8px 0 2px;font:700 11px/1.4 ${SANS};text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.briefs-h::before{content:"\\25A0";margin-right:7px;color:var(--fg)}
 .brief{display:grid;grid-template-columns:minmax(0,1fr) 68px;gap:14px;align-items:start;padding:14px 0;border-bottom:1px solid var(--line)}
 .brief.no-pic{grid-template-columns:minmax(0,1fr)}
 .brief h4{font:600 15.5px/1.3 ${SERIF};display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
-.brief p{margin:5px 0 0;font:400 13.5px/1.45 ${SERIF};color:var(--muted);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.brief p{margin:5px 0 0;font:400 13.5px/1.45 ${SERIF};color:var(--muted);text-align:justify;-webkit-hyphens:auto;hyphens:auto;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .brief .foot{margin-top:7px}
 .brief .pic{width:68px;aspect-ratio:1}
 .brief .ph{font-size:10px}
@@ -216,10 +254,11 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 .row .ph{font-size:11px}
 
 .empty{color:var(--muted);font-style:italic}
-.pager{display:flex;justify-content:space-between;gap:12px;margin-top:44px;padding-top:12px;border-top:3px double var(--rule);font:600 12px/1.4 ${SANS};text-transform:uppercase;letter-spacing:.08em}
+.end{margin:44px 0 0;text-align:center;font:600 12px/1 ${SANS};letter-spacing:.3em;color:var(--dim)}
+.pager{display:flex;justify-content:space-between;gap:12px;margin-top:16px;padding-top:12px;border-top:3px double var(--rule);font:600 12px/1.4 ${SANS};text-transform:uppercase;letter-spacing:.08em}
 .pager a:hover{text-decoration:underline}
 footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font:400 12.5px/1.6 ${SANS};text-align:center}
-footer .logo{display:block;font-size:24px;margin-bottom:6px;color:var(--fg)}
+footer .logo{display:block;font-size:34px;margin-bottom:8px;color:var(--fg)}
 footer a{text-decoration:underline;text-underline-offset:2px}
 footer details{margin-top:8px}
 footer details summary{cursor:pointer}
@@ -301,27 +340,34 @@ h2 small{color:var(--dim);font-weight:500;font-size:12px;margin-left:6px;letter-
   .front-side>.story:nth-child(2){border-top:0;padding-top:0}
   .cols3,.briefs{grid-template-columns:repeat(2,minmax(0,1fr))}
   .posts{columns:2}
-  .logo{font-size:46px}
+  .logo{font-size:60px}
+  .ear{max-width:150px;font-size:10.5px}
+  .ear b{font-size:13.5px}
+  .lead h3{font-size:36px}
 }
 @media (max-width:640px){
   .wrap{padding:0 16px 48px}
-  .mast{padding-top:8px}
-  .mast-top{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"logo right" "left left";align-items:center;gap:2px 8px;padding-bottom:8px}
-  .logo,.small .logo{font-size:28px;text-align:left;padding:0}
-  .mast-right{margin-right:-8px}
+  .mast{padding-top:2px}
+  .plate{grid-template-columns:minmax(0,1fr);padding:0 0 8px}
+  .ear{display:none}
+  .logo{font-size:44px}
+  .small .logo{font-size:36px}
   .mast-right a.txt{display:none}
-  .mast-left{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-  .mast-left b{font-weight:500}
-  .mast-left span{display:none}
+  .folio{grid-template-columns:auto 1fr;font-size:10px}
+  .folio>:nth-child(2){text-align:right;font-size:12px}
+  .folio>:last-child{display:none}
   .sections small{display:none}
   .sections{justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:20px;padding:10px 0}
   .sections::-webkit-scrollbar{display:none}
   .lead{grid-template-columns:minmax(0,1fr);gap:12px}
   .lead figure{order:-1;margin:0 -16px}
   .lead figcaption{padding:0 16px}
-  .lead h3,.sec-main .lead h3{font-size:25px}
-  .lead.no-pic h3{font-size:30px}
-  .lead.no-pic p{font-size:16px}
+  .story.lead h3{font-size:30px}
+  .lead-head{margin:14px 0 10px}
+  .lead.no-pic h3{font-size:32px}
+  .lead.no-pic .lead-text>p{font-size:16.5px}
+  .sec-h{font-size:26px;flex-wrap:wrap;row-gap:2px}
+  .pull blockquote{font-size:20px}
   .trio,.trio.pair{grid-template-columns:minmax(0,1fr);padding-top:0}
   .trio>.story{padding:16px 0 0!important;margin-top:16px;border-left:0!important;border-top:1px solid var(--line)}
   .trio>.story:first-child{border-top:0;margin-top:0}
@@ -332,11 +378,45 @@ h2 small{color:var(--dim);font-weight:500;font-size:12px;margin-left:6px;letter-
   .story h3{font-size:19px}
   .cols3,.briefs,.repos{grid-template-columns:minmax(0,1fr)}
   .posts{columns:1}
+  .repos{background:none}
   .intro h1{font-size:32px}
   .spark{grid-template-columns:100px minmax(0,1fr) 34px;gap:8px}
   .axis{margin:2px 42px 0 108px}
   .thumb{width:84px}
 }
+
+/* Motion. All of it is skipped for readers who ask for reduced motion.
+   - The nameplate inks in on load and the folio rules run out from the centre.
+   - Sections ink in as they scroll into view: the section rule is drawn across,
+     then the stories fade up from a soft blur one after another (class rv/in, set by REVEAL).
+   - Going to another page turns the page (a cross-document view transition).
+   - Switching light and dark rolls fresh ink down the page (see THEME_SCRIPT). */
+@keyframes press{from{opacity:0;filter:blur(7px);transform:scale(1.03)}60%{opacity:1}to{opacity:1;filter:none;transform:none}}
+@keyframes run{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes ink{from{opacity:0;filter:blur(3px);transform:translateY(10px)}to{opacity:1;filter:none;transform:none}}
+@keyframes draw{from{background-size:0 3px,0 1px}to{background-size:100% 3px,100% 1px}}
+@keyframes stamp{0%{transform:scale(1)}35%{transform:scale(1.45) rotate(-8deg)}100%{transform:scale(1)}}
+@keyframes leaf-out{0%{transform:perspective(2400px) rotateY(0);filter:none}100%{transform:perspective(2400px) rotateY(-92deg);filter:brightness(.7)}}
+@keyframes leaf-in{0%{filter:brightness(.82)}100%{filter:none}}
+@keyframes wash{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+@media (prefers-reduced-motion: no-preference){
+  html{scroll-behavior:smooth}
+  .logo{animation:press 1.1s cubic-bezier(.2,.7,.2,1) both}
+  .folio{position:relative}
+  .folio::before,.folio::after{content:"";position:absolute;left:0;right:0;height:1px;background:var(--bg);transform-origin:center;animation:run .9s .15s cubic-bezier(.6,0,.2,1) reverse both}
+  .folio::before{top:-1px}.folio::after{bottom:-4px;height:4px}
+  .rv .story,.rv .pull,.rv .briefs-h{opacity:0}
+  .rv.in .story,.rv.in .pull,.rv.in .briefs-h{animation:ink .75s cubic-bezier(.2,.7,.2,1) calc(var(--i,0) * 45ms + 100ms) both}
+  .rv .sec-h{background-size:0 3px,0 1px}
+  .rv.in .sec-h{animation:draw .7s cubic-bezier(.6,0,.2,1) both}
+  .acts button.stamped svg{animation:stamp .4s cubic-bezier(.2,.7,.2,1)}
+  @view-transition{navigation:auto}
+  ::view-transition-old(root){animation:leaf-out .65s cubic-bezier(.5,0,.3,1) both;transform-origin:0 50%;z-index:2}
+  ::view-transition-new(root){animation:leaf-in .65s ease-out both;z-index:1}
+  :root.inking::view-transition-old(root){animation:none;z-index:1}
+  :root.inking::view-transition-new(root){animation:wash .6s cubic-bezier(.65,0,.35,1) both;z-index:2}
+}
+@media (prefers-reduced-motion: reduce){.story h3 a,.story h4 a{transition:none}}
 `;
 
 const ICON = {
@@ -356,7 +436,19 @@ const THEME_SCRIPT = `<script>
 (()=>{const b=document.querySelector('.theme');if(!b)return;const r=document.documentElement;
 const dark=()=>r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;
 const label=()=>{const l=dark()?'Switch to light mode':'Switch to dark mode';b.title=l;b.setAttribute('aria-label',l);};
-label();b.addEventListener('click',()=>{const t=dark()?'light':'dark';r.dataset.theme=t;try{localStorage.setItem('theme',t)}catch(e){}label();});
+const flip=()=>{const t=dark()?'light':'dark';r.dataset.theme=t;try{localStorage.setItem('theme',t)}catch(e){}label();};
+label();b.addEventListener('click',()=>{
+ if(!document.startViewTransition||matchMedia('(prefers-reduced-motion: reduce)').matches)return flip();
+ r.classList.add('inking');document.startViewTransition(flip).finished.finally(()=>r.classList.remove('inking'));});
+})();
+</script>`;
+
+// Sections ink in as they come into view (see Motion in CSS). Without JS, or with
+// reduced motion, nothing is ever hidden.
+const REVEAL = `<script>
+(()=>{if(!('IntersectionObserver' in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+const io=new IntersectionObserver((es)=>{for(const e of es)if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}},{rootMargin:'0px 0px -6% 0px'});
+document.querySelectorAll('.front,.sec').forEach((s)=>{s.querySelectorAll('.story,.pull,.briefs-h').forEach((x,i)=>x.style.setProperty('--i',String(Math.min(i,10))));s.classList.add('rv');io.observe(s);});
 })();
 </script>`;
 
@@ -382,7 +474,7 @@ document.addEventListener('click',async(e)=>{
  const box=e.target.closest('[data-u]');if(!box)return;
  const b=e.target.closest('button[data-k]');
  if(b){e.preventDefault();const k=b.dataset.k,on=b.getAttribute('aria-pressed')!=='true';
-  b.setAttribute('aria-pressed',String(on));
+  b.setAttribute('aria-pressed',String(on));b.classList.toggle('stamped',on&&k!=='hide');
   if(!(await post(box.dataset.u,k,on))){b.setAttribute('aria-pressed',String(!on));return;}
   if(k==='hide'&&on)hide(box,b);return;}
  if(e.target.closest('a[href]'))opened(box);
@@ -396,7 +488,8 @@ interface PageOpts {
   sections?: string; // section links under the masthead; defaults to every topic on the front page
   view?: View;
   here?: string;
-  dateline?: string; // left of the nameplate: the edition date and a short note
+  ears?: [string, string]; // the boxes either side of the nameplate (front page only)
+  folio?: [string, string, string]; // the line under the nameplate: number, date, place
   big?: boolean; // full-size nameplate (front page); inner pages get a smaller one
 }
 
@@ -405,7 +498,8 @@ const defaultSections = () => TOPICS.map((t) => `<a href="/#${t.id}">${esc(t.lab
 function page(title: string, body: string, o: PageOpts = {}): string {
   const view = o.view ?? PUBLIC;
   const today = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
-  const dateline = o.dateline ?? `<b>${esc(longDate(today))}</b><span>Ulaanbaatar edition</span>`;
+  const folio = o.folio ?? ["news.tseku.dev", esc(longDate(today)), "Ulaanbaatar edition"];
+  const ears = o.big && o.ears ? o.ears.map((e, i) => `<div class="ear ${i ? "r" : "l"}">${e}</div>`) : ["", ""];
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title>
@@ -413,11 +507,13 @@ function page(title: string, body: string, o: PageOpts = {}): string {
 <meta name="color-scheme" content="light dark">
 <link rel="alternate" type="application/rss+xml" title="news.tseku.dev" href="/feed.xml">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,900;1,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,900;1,600&family=UnifrakturMaguntia&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='2' fill='%23121212'/%3E%3Ctext x='8' y='12.5' font-family='Georgia,serif' font-weight='700' font-size='12' text-anchor='middle' fill='%23fbfaf6'%3ET%3C/text%3E%3C/svg%3E">
 ${THEME_HEAD}${o.head ?? ""}<style>${CSS}</style></head><body>
 <header class="mast${o.big ? "" : " small"}"><div class="wrap" style="padding-bottom:0">
-<div class="mast-top"><div class="mast-left">${dateline}</div><a class="logo" href="/">${esc(MASTHEAD)}</a>${tools(view, o.here ?? "")}</div>
+<div class="util"><span class="util-l"><a href="/">Today's paper</a> · <a href="/archive">Archive</a></span>${tools(view, o.here ?? "")}</div>
+<div class="plate">${ears[0]}<a class="logo" href="/">${esc(MASTHEAD)}</a>${ears[1]}</div>
+<div class="folio">${folio.map((f) => `<span>${f}</span>`).join("")}</div>
 <nav class="sections" aria-label="Sections">${o.sections ?? defaultSections()}</nav>
 </div></header>
 <main class="wrap">
@@ -426,7 +522,7 @@ ${body}
 <a href="/archive">archive</a> · <a href="/search">search</a> · <a href="/trends">trends</a> · <a href="/feed.xml">rss</a> · <a href="/api/latest.json">json</a> · ${
     view.signedIn ? `<a href="/saved">saved</a> · <a href="/logout">sign out</a>` : `<a href="/login">sign in</a>`
   } · <a href="https://tseku.dev">tseku.dev</a></footer>
-</main>${THEME_SCRIPT}${view.signedIn ? SCRIPT : ""}</body></html>`;
+</main>${THEME_SCRIPT}${REVEAL}${view.signedIn ? SCRIPT : ""}</body></html>`;
 }
 
 function srcName(it: Item): string {
@@ -448,10 +544,10 @@ const sameAsSource = (it: Item) => {
 };
 
 // "5 min read" or "412 points" leads, in the small caps line under a headline.
-function meta(it: Ranked): string {
+function meta(it: Ranked, withHost = true): string {
   const bits: string[] = [];
   if (it.meta) bits.push(`<span class="rt">${esc(it.meta)}</span>`);
-  if (!sameAsSource(it)) bits.push(esc(host(it.url)));
+  if (withHost && !sameAsSource(it)) bits.push(esc(host(it.url)));
   if (it.also?.length) bits.push(`also in ${it.also.map((s) => esc(srcById.get(s)?.name ?? s)).join(", ")}`);
   if (it.discuss && it.discuss !== it.url) bits.push(`<a href="${esc(it.discuss)}" target="_blank" rel="noopener">discuss</a>`);
   return `<div class="meta">${bits.join(" · ")}</div>`;
@@ -466,9 +562,11 @@ function acts(it: Item, view: View): string {
 }
 
 function markAttrs(it: Item, view: View): { cls: string; data: string } {
-  if (!view.signedIn) return { cls: "", data: "" };
+  // Mongolian stories are marked as such so the browser hyphenates them as Mongolian, not English.
+  const lang = /[\u0400-\u04ff]/.test(it.title) ? ` lang="mn"` : "";
+  if (!view.signedIn) return { cls: "", data: lang };
   const m = view.marks?.get(it.url);
-  return { cls: m?.read ? " is-read" : "", data: ` data-u="${esc(it.url)}"` };
+  return { cls: m?.read ? " is-read" : "", data: ` data-u="${esc(it.url)}"${lang}` };
 }
 
 const kicker = (it: Ranked, showTopic: boolean) =>
@@ -479,12 +577,18 @@ const headline = (it: Ranked, tag: "h3" | "h4") =>
 const summary = (it: Ranked) =>
   it.brief ? `<p class="ai">${esc(it.brief)}</p>` : it.summary ? `<p>${esc(it.summary)}</p>` : "";
 
-// The lead of a page or section: headline and summary beside a large picture.
-function lead(it: Ranked, showTopic: boolean, view: View): string {
+// The lead of a page or section: a banner headline across the top, then the summary
+// (with a drop cap) beside a large picture, and a jump line, as on a front page:
+// where the full story is, and on the front page, where its section starts.
+function lead(it: Ranked, showTopic: boolean, view: View, jumpTo?: { id: string; label: string; page: string }): string {
   const m = markAttrs(it, view);
   const fig = it.image ? `<figure>${pic(it, true)}<figcaption>Image: ${esc(srcName(it))}</figcaption></figure>` : "";
-  return `<article class="story lead t-${it.topic}${it.image ? "" : " no-pic"}${m.cls}"${m.data}><div class="lead-text">${kicker(it, showTopic)}${headline(it, "h3")}${summary(it)}
-<div class="foot">${meta(it)}${acts(it, view)}</div></div>${fig}</article>`;
+  const h = host(it.url);
+  const jump = `<span class="jump">${h ? `Full story at <a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(h)}</a>` : ""}${
+    jumpTo ? `${h ? ". " : ""}More ${esc(jumpTo.label)}, <a href="#${jumpTo.id}">Section ${jumpTo.page}</a>.` : h ? "." : ""
+  }</span>`;
+  return `<article class="story lead t-${it.topic}${it.image ? "" : " no-pic"}${m.cls}"${m.data}><div class="lead-head">${kicker(it, showTopic)}${headline(it, "h3")}</div><div class="lead-text">${summary(it)}${jump}
+<div class="foot">${meta(it, false)}${acts(it, view)}</div></div>${fig}</article>`;
 }
 
 // A column story. pic: "top" shows the picture above the headline, "thumb" a small square
@@ -557,15 +661,21 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
   const trio2 = others.slice(6, 9);
   const sideFirst = side.findIndex((it) => it.image);
   if (sideFirst > 0) side.unshift(...side.splice(sideFirst, 1));
+  // Each topic section is a lettered section of the paper, like B and C in print; the front page is A.
+  const pages = new Map(
+    TOPICS.filter((t) => ranked.some((i) => i.topic === t.id && !topUrls.has(i.url))).map((t, i) => [t.id as string, String.fromCharCode(66 + i)]),
+  );
+  const firstPage = first && pages.get(first.topic);
+  const pull = pullQuote(ranked.filter((i) => i.topic === "posts").sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))[0]);
   const front = first
-    ? `<section class="front"><div class="front-main">${lead(first, true, view)}${
+    ? `<section class="front"><div class="front-main">${lead(first, true, view, firstPage ? { id: first.topic, label: first.topic === "dev" ? "software development" : shortLabel(first.topic), page: firstPage } : undefined)}${
         [trio, trio2]
           .filter((r) => r.length)
           .map((r) => `<div class="trio">${r.map((it) => story(it, { showTopic: true }, view)).join("")}</div>`)
           .join("")
       }</div>${
         side.length
-          ? `<div class="front-side">${side.map((it, i) => story(it, { pic: i === 0 ? "top" : "none", showTopic: true }, view)).join("")}</div>`
+          ? `<div class="front-side">${side.map((it, i) => story(it, { pic: i === 0 ? "top" : "none", showTopic: true }, view)).join("")}${pull}</div>`
           : ""
       }</section>`
     : "";
@@ -583,8 +693,9 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
   const sections = topics
     .filter((x) => x.list.length)
     .map(({ t, list, total }) => {
-      if (t.id === "posts") return postsSection(list, view);
-      if (t.id === "repos") return reposSection(list, view);
+      const pg = `<span class="pg">Section ${pages.get(t.id) ?? ""}</span>`;
+      if (t.id === "posts") return postsSection(list, view, pg);
+      if (t.id === "repos") return reposSection(list, view, pg);
       // Lead with the best story that has a picture, if one is near the top.
       const li = list.slice(0, 3).findIndex((it) => it.image);
       const items = li > 0 ? [list[li], ...list.filter((_, i) => i !== li)] : list;
@@ -601,7 +712,7 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
         const foldedHtml = folded.length
           ? briefs(folded, t.label, view)
           : "";
-        return `<section id="${t.id}" class="sec t-${t.id}"><h2 class="sec-h">${esc(t.label)} <small>${total} ${total === 1 ? "story" : "stories"}</small><a class="top" href="#">Top ↑</a></h2>
+        return `<section id="${t.id}" class="sec t-${t.id}"><h2 class="sec-h">${esc(t.label)} <small>${total} ${total === 1 ? "story" : "stories"}</small>${pg}<a class="top" href="#">Top ↑</a></h2>
 <div class="sec-grid${sideCol ? "" : " solo"}"><div class="sec-main"><div class="trio across${across.length === 2 ? " pair" : ""}">${across
           .map((it, i) => story(it, { pic: "top", showTopic: false, big: i === 0 }, view))
           .join("")}</div></div>${sideCol}</div>${foldedHtml}</section>`;
@@ -616,7 +727,7 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
       const more = hidden.length
         ? briefs(hidden, t.label, view)
         : "";
-      return `<section id="${t.id}" class="sec t-${t.id}"><h2 class="sec-h">${esc(t.label)} <small>${total} ${total === 1 ? "story" : "stories"}</small><a class="top" href="#">Top ↑</a></h2>
+      return `<section id="${t.id}" class="sec t-${t.id}"><h2 class="sec-h">${esc(t.label)} <small>${total} ${total === 1 ? "story" : "stories"}</small>${pg}<a class="top" href="#">Top ↑</a></h2>
 <div class="sec-grid${col ? "" : " solo"}"><div class="sec-main">${lead(head, false, view)}${
         pair.length ? `<div class="trio pair">${pair.map((it) => story(it, {}, view)).join("")}</div>` : ""
       }</div>${col}</div>${more}</section>`;
@@ -635,10 +746,33 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
     return `<li><span class="${cls}">●</span> ${esc(s.name)} <span style="color:var(--dim)">${esc(r.startsWith("error") ? "unavailable" : r)}</span></li>`;
   }).join("");
 
-  const dateline = `<b>${esc(longDate(ed.date))}</b><span>${isLatest ? "Today's paper" : `<a href="/" style="text-decoration:underline">Archive edition</a>`} · ${ed.items.length} stories · <span style="white-space:nowrap">${ubTime(ed.generatedAt)} UB</span></span>`;
-  const body = `${front}${sections || (top.length ? "" : `<p class="empty" style="margin-top:24px">Nothing new today.</p>`)}${pager}
+  // Folio: volume (years since the first edition in 2026) and issue number (editions so far).
+  const vol = roman(Math.max(1, Number(ed.date.slice(0, 4)) - 2025));
+  const no = idx >= 0 ? dates.length - idx : dates.length + 1;
+  const folio: [string, string, string] = [`Vol. ${vol} · No. ${no}`, esc(longDate(ed.date)), isLatest ? "Ulaanbaatar edition" : `<a href="/">Archive copy · today's paper</a>`];
+  const ears: [string, string] = [
+    `<b>“All the news that fits.”</b>Gathered at dawn from ${okSources} sources`,
+    `<b>${isLatest ? "Morning edition" : "Archive edition"}</b><span class="rt">${ed.items.length} stories</span> · printed ${ubTime(ed.generatedAt)} UB`,
+  ];
+  const body = `${front}${sections || (top.length ? "" : `<p class="empty" style="margin-top:24px">Nothing new today.</p>`)}<div class="end" aria-hidden="true">— 30 —</div>${pager}
 <footer style="border:0;margin-top:20px;padding-top:0"><details><summary>${okSources}/${SOURCES.length} sources worked today</summary><ul class="src">${srcList}</ul></details></footer>`;
-  return page(`news.tseku.dev · ${ed.date}`, body, { sections: sectionLinks, view, here: isLatest ? "/" : "", dateline, big: true });
+  return page(`news.tseku.dev · ${ed.date}`, body, { sections: sectionLinks, view, here: isLatest ? "/" : "", folio, ears, big: true });
+}
+
+// The newest post, set as a pull quote at the foot of the front page's right column.
+// It is a quotation from the Posts section, which still lists it.
+function pullQuote(it?: Ranked): string {
+  if (!it) return "";
+  const text = it.title.length > 180 ? `${it.title.slice(0, 177).replace(/\s+\S*$/, "")}…` : it.title;
+  const face = it.avatar ? `<img src="${esc(it.avatar)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : "";
+  return `<figure class="pull"><blockquote><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(text)}</a></blockquote><figcaption>${face}${esc(it.by ?? srcName(it))} <span>${esc(it.meta ?? "")}</span></figcaption></figure>`;
+}
+
+function roman(n: number): string {
+  const r: [number, string][] = [[10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]];
+  let out = "";
+  for (const [v, s] of r) while (n >= v) { out += s; n -= v; }
+  return out;
 }
 
 // Posts as short notes in three columns, newest first, all shown: who, the post, when.
@@ -698,15 +832,15 @@ function repoCard(it: Ranked, n: number, view: View): string {
   }${f.starsText ? `<span class="stars">★ ${esc(f.starsText)}</span>` : ""}</div>${acts(it, view)}</div></div></article>`;
 }
 
-function reposSection(list: Ranked[], view: View): string {
+function reposSection(list: Ranked[], view: View, pg = ""): string {
   const repos = [...list].sort((a, b) => repoFacts(b).stars - repoFacts(a).stars);
-  return `<section id="repos" class="sec t-repos"><h2 class="sec-h">Trending repos <small>github.com/trending</small><a class="top" href="#">Top ↑</a></h2>
+  return `<section id="repos" class="sec t-repos"><h2 class="sec-h">Trending repos <small>github.com/trending</small>${pg}<a class="top" href="#">Top ↑</a></h2>
 <div class="repos">${repos.map((it, i) => repoCard(it, i + 1, view)).join("")}</div></section>`;
 }
 
-function postsSection(list: Ranked[], view: View): string {
+function postsSection(list: Ranked[], view: View, pg = ""): string {
   const posts = [...list].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
-  return `<section id="posts" class="sec t-posts"><h2 class="sec-h">Posts<a class="top" href="#">Top ↑</a></h2>
+  return `<section id="posts" class="sec t-posts"><h2 class="sec-h">Posts${pg}<a class="top" href="#">Top ↑</a></h2>
 <div class="posts">${posts.map((it) => post(it, view)).join("")}</div></section>`;
 }
 
