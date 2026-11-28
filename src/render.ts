@@ -657,7 +657,7 @@ function post(it: Ranked, view: View): string {
 
 function postsSection(list: Ranked[], view: View): string {
   const posts = [...list].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
-  return `<section id="posts" class="sec t-posts"><h2 class="sec-h">Posts <small>${posts.length} from people you follow</small><a class="top" href="#">Top ↑</a></h2>
+  return `<section id="posts" class="sec t-posts"><h2 class="sec-h">Posts<a class="top" href="#">Top ↑</a></h2>
 <div class="posts">${posts.map((it) => post(it, view)).join("")}</div></section>`;
 }
 
