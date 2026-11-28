@@ -164,8 +164,7 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 .post{break-inside:avoid;margin:0 0 20px;padding:14px 16px 12px;border:1px solid var(--line);border-top:3px double var(--rule);background:var(--bg)}
 .post header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .post .face{position:relative;flex:none;width:38px;height:38px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:var(--chip);border:1px solid var(--line);font:italic 700 17px/1 ${DISPLAY};color:var(--muted)}
-.post .face img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:grayscale(1) contrast(1.05);transition:filter .2s}
-.post:hover .face img{filter:none}
+.post .face img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .post .who{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.2}
 .post .who b{font:700 15px/1.25 ${SERIF};color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .post .who span{font:500 11.5px/1.3 ${SANS};color:var(--dim);letter-spacing:.02em}
@@ -179,7 +178,7 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 .quote{display:block;margin:0 0 12px;padding:10px 12px;border:1px solid var(--line);border-left:3px solid var(--rule);background:var(--tint);color:var(--fg);text-decoration:none}
 .quote:hover{border-color:var(--muted);border-left-color:var(--rule)}
 .q-who{display:flex;align-items:center;gap:6px;margin-bottom:5px;font:500 11.5px/1.3 ${SANS};color:var(--dim);min-width:0}
-.q-who img{width:18px;height:18px;border-radius:50%;object-fit:cover;filter:grayscale(1)}
+.q-who img{width:18px;height:18px;border-radius:50%;object-fit:cover}
 .q-who b{font:700 13px/1.3 ${SERIF};color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .q-who span{white-space:nowrap}
 .q-text{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:6;overflow:hidden;white-space:pre-line;font:400 14.5px/1.45 ${SERIF};color:var(--fg)}
