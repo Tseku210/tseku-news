@@ -15,6 +15,7 @@ const CONCURRENCY = 4;
 const MAX_CHARS = 260;
 
 const srcName = new Map(SOURCES.map((s) => [s.id, s.name]));
+const noBrief = new Set(SOURCES.filter((s) => s.kind === "social" || s.kind === "github").map((s) => s.id));
 
 const SYSTEM =
   "You write the summary line under a headline on a personal news page. " +
@@ -42,7 +43,8 @@ export async function cachedBriefs(env: Env, urls: string[]): Promise<Map<string
 // Give every item without a brief one, from the cache or the model. `pageText`
 // holds article text read during the run (by URL). Returns how many items changed.
 export async function addBriefs(env: Env, items: Item[], pageText: Map<string, string>, now: number): Promise<number> {
-  const todo = items.filter((i) => !i.brief);
+  // Posts and trending repos are shown as written; they need no summary.
+  const todo = items.filter((i) => !i.brief && !noBrief.has(i.source));
   if (!todo.length) return 0;
   let changed = 0;
   let cache: Map<string, string>;

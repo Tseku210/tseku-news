@@ -48,9 +48,9 @@ function shortDate(d: string): string {
 // Newsprint palettes. Topic hues survive only in small places (trend charts,
 // the tint behind a story that has no picture) so the page stays black on paper.
 const LIGHT = `--bg:#fbfaf6;--fg:#121212;--ink:#121212;--muted:#555350;--dim:#8a8781;--line:#dcd9d2;--rule:#121212;--chip:#efede7;--tint:#e9e6de;--link:#326891;--red:#c2281f;
---ai:#6f4bd8;--dev:#1f62c9;--startups:#c4530f;--tech:#0c7f6c;--mongolia:#bf2e61;--blogs:#957400;--posts:#3d3d3d`;
+--ai:#6f4bd8;--dev:#1f62c9;--startups:#c4530f;--tech:#0c7f6c;--mongolia:#bf2e61;--blogs:#957400;--repos:#24292f;--posts:#3d3d3d`;
 const DARK = `--bg:#121212;--fg:#e9e6df;--ink:#f1eee8;--muted:#aaa69e;--dim:#77746e;--line:#2d2c2a;--rule:#cfcbc2;--chip:#1e1e1d;--tint:#1c1c1b;--link:#8fb8dc;--red:#ff6a5c;
---ai:#a28bff;--dev:#58a6ff;--startups:#ff8a3d;--tech:#2ec4a6;--mongolia:#ff6b9a;--blogs:#e3b341;--posts:#b9b5ad`;
+--ai:#a28bff;--dev:#58a6ff;--startups:#ff8a3d;--tech:#2ec4a6;--mongolia:#ff6b9a;--blogs:#e3b341;--repos:#c9d1d9;--posts:#b9b5ad`;
 
 const SERIF = `"Source Serif 4","Source Serif Pro",Georgia,"Times New Roman",serif`;
 const DISPLAY = `"Playfair Display",${SERIF}`;
@@ -65,7 +65,7 @@ html{-webkit-text-size-adjust:100%;scroll-padding-top:12px}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 ${SERIF};-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
 .wrap{max-width:1200px;margin:0 auto;padding:0 24px 64px}
-.t-ai{--c:var(--ai)}.t-dev{--c:var(--dev)}.t-startups{--c:var(--startups)}.t-tech{--c:var(--tech)}.t-mongolia{--c:var(--mongolia)}.t-blogs{--c:var(--blogs)}.t-posts{--c:var(--posts)}
+.t-ai{--c:var(--ai)}.t-dev{--c:var(--dev)}.t-startups{--c:var(--startups)}.t-tech{--c:var(--tech)}.t-mongolia{--c:var(--mongolia)}.t-blogs{--c:var(--blogs)}.t-repos{--c:var(--repos)}.t-posts{--c:var(--posts)}
 
 /* Masthead: date and edition on the left, nameplate in the middle, tools on the right,
    section links under a double rule. */
@@ -160,6 +160,21 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 /* Rows: compact stories in lists (more, search, saved) */
 .list{display:flex;flex-direction:column}
 .list>.row:first-child{border-top:0}
+.repos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:32px;margin-top:6px}
+.repo{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--line)}
+.repo-n{flex:none;width:30px;font:italic 700 28px/1 ${DISPLAY};color:var(--dim);text-align:right;padding-top:2px}
+.repo-body{flex:1;min-width:0}
+.repo h4{font:700 17px/1.3 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-wrap:anywhere;letter-spacing:-.01em}
+.repo h4 a{color:var(--ink);text-decoration:none}
+.repo h4 a:hover{text-decoration:underline;text-underline-offset:3px}
+.repo-owner{font-weight:400;color:var(--muted)}
+.repo p{margin:5px 0 0;font:400 14.5px/1.45 ${SERIF};color:var(--muted);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.repo .foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+.repo .foot .acts{margin:-4px -6px -4px 0}
+.repo-facts{display:flex;flex-wrap:wrap;gap:4px 16px;font:500 12px/1.4 ${SANS};color:var(--muted)}
+.repo-facts .lang{display:inline-flex;align-items:center;gap:6px}
+.repo-facts .lang i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.repo-facts .stars{font-weight:700;color:var(--fg)}
 .posts{display:block;columns:3;column-gap:20px;margin-top:14px}
 .post{break-inside:avoid;margin:0 0 20px;padding:14px 16px 12px;border:1px solid var(--line);border-top:3px double var(--rule);background:var(--bg)}
 .post header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
@@ -315,7 +330,7 @@ h2 small{color:var(--dim);font-weight:500;font-size:12px;margin-left:6px;letter-
   .front-side>.story+.story{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
   .front-side>.story:first-child h3{font-size:21px}
   .story h3{font-size:19px}
-  .cols3,.briefs{grid-template-columns:minmax(0,1fr)}
+  .cols3,.briefs,.repos{grid-template-columns:minmax(0,1fr)}
   .posts{columns:1}
   .intro h1{font-size:32px}
   .spark{grid-template-columns:100px minmax(0,1fr) 34px;gap:8px}
@@ -530,7 +545,7 @@ const SIDE_ROWS = 3;
 export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, view: View = PUBLIC): string {
   const ranked = rank(ed.items, Date.parse(ed.generatedAt)).filter((i) => !view.marks?.get(i.url)?.hidden);
   // Posts from people get their own section at the end and never make the front page.
-  const top = topPicks(ranked.filter((i) => i.topic !== "posts"), 10);
+  const top = topPicks(ranked.filter((i) => i.topic !== "posts" && i.topic !== "repos"), 10);
   const topUrls = new Set(top.map((i) => i.url));
 
   // Front page: lead with picture and two rows of three stories under it; on the right a
@@ -569,6 +584,7 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
     .filter((x) => x.list.length)
     .map(({ t, list, total }) => {
       if (t.id === "posts") return postsSection(list, view);
+      if (t.id === "repos") return reposSection(list, view);
       // Lead with the best story that has a picture, if one is near the top.
       const li = list.slice(0, 3).findIndex((it) => it.image);
       const items = li > 0 ? [list[li], ...list.filter((_, i) => i !== li)] : list;
@@ -653,6 +669,39 @@ function post(it: Ranked, view: View): string {
   return `<article class="post story${m.cls}"${m.data}><header>${face}<div class="who"><b>${esc(name)}</b><span>${esc(it.meta ?? "")}</span></div><span class="net">${on === "X" ? "𝕏" : "Bluesky"}</span></header>
 <p><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title)}</a></p>${it.image ? pic(it) : ""}${quoteBox(it)}
 <div class="foot"><div class="meta">${esc(postAgo(it.date))}${it.date ? " · " : ""}<a href="${esc(it.url)}" target="_blank" rel="noopener">view on ${on} ↗</a></div>${acts(it, view)}</div></article>`;
+}
+
+// Trending repositories as a numbered list of small cards, most stars gained today first:
+// owner / name, the description, the language with its colour, and today's stars.
+const LANG_COLOR: Record<string, string> = {
+  TypeScript: "#3178c6", JavaScript: "#f1e05a", Python: "#3572a5", Rust: "#dea584", Go: "#00add8", Zig: "#ec915c",
+  Java: "#b07219", Kotlin: "#a97bff", Swift: "#f05138", "C++": "#f34b7d", C: "#555555", "C#": "#178600", Ruby: "#701516",
+  PHP: "#4f5d95", Shell: "#89e051", Dart: "#00b4ab", "Jupyter Notebook": "#da5b0b", HTML: "#e34c26", CSS: "#663399",
+  Lua: "#000080", Elixir: "#6e4a7e", Haskell: "#5e5086", Scala: "#c22d40", Vue: "#41b883", Svelte: "#ff3e00", MDX: "#fcb32c",
+};
+
+function repoFacts(it: Item): { stars: number; starsText: string; lang: string } {
+  const m = /★\s*([\d,]+)\s*([^·]*)/.exec(it.meta ?? "");
+  const lang = (it.meta ?? "").split(" · ").find((p) => !p.startsWith("★"))?.trim() ?? "";
+  return { stars: m ? Number(m[1].replace(/,/g, "")) : 0, starsText: m ? `${m[1]} ${m[2].trim()}` : "", lang };
+}
+
+function repoCard(it: Ranked, n: number, view: View): string {
+  const m = markAttrs(it, view);
+  const f = repoFacts(it);
+  const [owner, name] = it.title.split(" / ");
+  const color = LANG_COLOR[f.lang];
+  return `<article class="repo story${m.cls}"${m.data}><span class="repo-n">${n}</span><div class="repo-body"><h4><a href="${esc(it.url)}" target="_blank" rel="noopener">${
+    name ? `<span class="repo-owner">${esc(owner)} /</span> ${esc(name)}` : esc(it.title)
+  }</a></h4>${it.summary ? `<p>${esc(it.summary)}</p>` : ""}<div class="foot"><div class="repo-facts">${
+    f.lang ? `<span class="lang"><i style="background:${color ?? "var(--dim)"}"></i>${esc(f.lang)}</span>` : ""
+  }${f.starsText ? `<span class="stars">★ ${esc(f.starsText)}</span>` : ""}</div>${acts(it, view)}</div></div></article>`;
+}
+
+function reposSection(list: Ranked[], view: View): string {
+  const repos = [...list].sort((a, b) => repoFacts(b).stars - repoFacts(a).stars);
+  return `<section id="repos" class="sec t-repos"><h2 class="sec-h">Trending repos <small>github.com/trending</small><a class="top" href="#">Top ↑</a></h2>
+<div class="repos">${repos.map((it, i) => repoCard(it, i + 1, view)).join("")}</div></section>`;
 }
 
 function postsSection(list: Ranked[], view: View): string {

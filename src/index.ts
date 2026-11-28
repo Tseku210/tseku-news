@@ -160,7 +160,11 @@ async function readPages(
   return texts;
 }
 
-const isPost = (it: Item) => SOURCES.find((s) => s.id === it.source)?.kind === "social";
+// Posts and trending repos are shown as they come: no page visit for a picture or text to summarise.
+const isPost = (it: Item) => {
+  const kind = SOURCES.find((s) => s.id === it.source)?.kind;
+  return kind === "social" || kind === "github";
+};
 
 async function readJson<T>(env: Env, key: string, fallback: T): Promise<T> {
   const v = await env.NEWS.get(key, "json");
