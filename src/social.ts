@@ -36,9 +36,30 @@ export const bskyFeedUrl = (handle: string) =>
   `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(handle)}&filter=posts_no_replies&limit=30`;
 
 type BskyImages = { images?: { thumb?: string }[] };
+interface BskyRecord {
+  uri?: string;
+  author?: { handle?: string; displayName?: string; avatar?: string };
+  value?: { text?: string; createdAt?: string };
+}
 interface BskyEmbed extends BskyImages {
   media?: BskyImages;
   external?: { thumb?: string };
+  record?: BskyRecord & { record?: BskyRecord }; // a quoted post (recordWithMedia nests it once more)
+}
+
+function bskyQuote(e?: BskyEmbed): Item["quote"] {
+  const r = e?.record?.record?.value ? e.record.record : e?.record;
+  const handle = r?.author?.handle;
+  const rkey = r?.uri?.split("/").pop();
+  if (!r?.value?.text || !handle || !rkey) return undefined;
+  return {
+    by: r.author?.displayName || handle,
+    handle,
+    text: tidy(r.value.text),
+    url: `https://bsky.app/profile/${handle}/post/${rkey}`,
+    avatar: imageUrl(r.author?.avatar),
+    date: iso(r.value.createdAt),
+  };
 }
 
 export function parseBsky(json: string, source: string): Item[] {
@@ -71,6 +92,7 @@ export function parseBsky(json: string, source: string): Item[] {
       by: p.author?.displayName || handle,
       meta: `@${handle}`,
       avatar: imageUrl(p.author?.avatar),
+      quote: bskyQuote(e),
       image: imageUrl(e?.images?.[0]?.thumb ?? e?.media?.images?.[0]?.thumb ?? e?.external?.thumb),
     });
   }
@@ -124,6 +146,21 @@ interface Tweet {
   entities?: { urls?: { url?: string; expanded_url?: string; display_url?: string }[]; media?: { url?: string; media_url_https?: string }[] };
   extended_entities?: { media?: { url?: string; media_url_https?: string }[] };
   mediaDetails?: { media_url_https?: string }[];
+  quoted_status?: Tweet;
+  quoted_status_id_str?: string;
+}
+
+// Text with links shown as their real address and links to attached media removed.
+// A link to the quoted post itself is dropped too, since the quote is shown below.
+function tweetText(t: Tweet, quotedId?: string): string {
+  let text = t.full_text ?? t.text ?? "";
+  for (const u of t.entities?.urls ?? []) {
+    if (!u.url) continue;
+    const toQuote = !!quotedId && (u.expanded_url ?? "").includes(`/status/${quotedId}`);
+    text = text.split(u.url).join(toQuote ? "" : (u.display_url ?? u.expanded_url ?? ""));
+  }
+  for (const m of t.extended_entities?.media ?? t.entities?.media ?? []) if (m.url) text = text.split(m.url).join("");
+  return tidy(text);
 }
 
 const isTweet = (o: Record<string, unknown>) =>
@@ -157,22 +194,32 @@ export function parseXTimeline(html: string, handle: string, source: string): It
   for (const t of tweets) {
     const name = t.user?.screen_name ?? handle;
     if (name.toLowerCase() !== me || t.retweeted_status || t.in_reply_to_status_id_str) continue;
-    let text = t.full_text ?? t.text ?? "";
-    if (/^RT @/.test(text)) continue;
-    // Show links as their real address, and drop the link to attached media.
-    for (const u of t.entities?.urls ?? []) if (u.url) text = text.split(u.url).join(u.display_url ?? u.expanded_url ?? "");
+    if (/^RT @/.test(t.full_text ?? t.text ?? "")) continue;
+    const q = t.quoted_status;
+    const qId = q?.id_str ?? t.quoted_status_id_str;
+    const text = tweetText(t, qId);
     const media = t.extended_entities?.media ?? t.entities?.media ?? [];
-    for (const m of media) if (m.url) text = text.split(m.url).join("");
-    text = tidy(text);
-    if (!text) continue;
+    if (!text && !q) continue;
+    const qName = q?.user?.screen_name;
     out.push({
-      title: text,
+      title: text || `Quoting @${qName}`,
       url: `https://x.com/${name}/status/${t.id_str}`,
       date: iso(t.created_at),
       source,
       by: t.user?.name || name,
       meta: `@${name}`,
       avatar: imageUrl(t.user?.profile_image_url_https),
+      quote:
+        q && qName && qId
+          ? {
+              by: q.user?.name || qName,
+              handle: qName,
+              text: tweetText(q),
+              url: `https://x.com/${qName}/status/${qId}`,
+              avatar: imageUrl(q.user?.profile_image_url_https),
+              date: iso(q.created_at),
+            }
+          : undefined,
       image: imageUrl(media[0]?.media_url_https ?? t.mediaDetails?.[0]?.media_url_https),
     });
   }

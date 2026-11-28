@@ -174,7 +174,15 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 .post p a{color:var(--fg);text-decoration:none}
 .post p a:hover{text-decoration:underline;text-underline-offset:3px}
 .post .pic{aspect-ratio:16/9;margin:0 0 10px;border:1px solid var(--line)}
-.post .foot{padding-top:8px;border-top:1px solid var(--line)}
+.post .foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:8px;border-top:1px solid var(--line)}
+.post .foot .acts{margin:-4px -6px -4px 0}
+.quote{display:block;margin:0 0 12px;padding:10px 12px;border:1px solid var(--line);border-left:3px solid var(--rule);background:var(--tint);color:var(--fg);text-decoration:none}
+.quote:hover{border-color:var(--muted);border-left-color:var(--rule)}
+.q-who{display:flex;align-items:center;gap:6px;margin-bottom:5px;font:500 11.5px/1.3 ${SANS};color:var(--dim);min-width:0}
+.q-who img{width:18px;height:18px;border-radius:50%;object-fit:cover;filter:grayscale(1)}
+.q-who b{font:700 13px/1.3 ${SERIF};color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q-who span{white-space:nowrap}
+.q-text{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:6;overflow:hidden;white-space:pre-line;font:400 14.5px/1.45 ${SERIF};color:var(--fg)}
 .post .meta a{position:static}
 .briefs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:28px;margin-top:22px;border-top:1px solid var(--rule)}
 .briefs-h{grid-column:1/-1;margin:0;padding:8px 0 2px;font:700 11px/1.4 ${SANS};text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
@@ -626,6 +634,16 @@ function postAgo(iso?: string): string {
   return h < 1 ? "just now" : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
 }
 
+// The post a post quotes, in a smaller box underneath, linking to the original.
+function quoteBox(it: Item): string {
+  const q = it.quote;
+  if (!q) return "";
+  const face = q.avatar ? `<img src="${esc(q.avatar)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : "";
+  return `<a class="quote" href="${esc(q.url)}" target="_blank" rel="noopener"><span class="q-who">${face}<b>${esc(q.by)}</b> <span>@${esc(q.handle)}${
+    q.date ? ` · ${esc(postAgo(q.date))}` : ""
+  }</span></span><span class="q-text">${esc(q.text)}</span></a>`;
+}
+
 function post(it: Ranked, view: View): string {
   const m = markAttrs(it, view);
   const on = /bsky\.app/.test(it.url) ? "Bluesky" : "X";
@@ -634,7 +652,7 @@ function post(it: Ranked, view: View): string {
     it.avatar ? `<img src="${esc(it.avatar)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""
   }</span>`;
   return `<article class="post story${m.cls}"${m.data}><header>${face}<div class="who"><b>${esc(name)}</b><span>${esc(it.meta ?? "")}</span></div><span class="net">${on === "X" ? "𝕏" : "Bluesky"}</span></header>
-<p><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title)}</a></p>${it.image ? pic(it) : ""}
+<p><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title)}</a></p>${it.image ? pic(it) : ""}${quoteBox(it)}
 <div class="foot"><div class="meta">${esc(postAgo(it.date))}${it.date ? " · " : ""}<a href="${esc(it.url)}" target="_blank" rel="noopener">view on ${on} ↗</a></div>${acts(it, view)}</div></article>`;
 }
 
