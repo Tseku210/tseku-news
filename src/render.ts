@@ -164,8 +164,7 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 .post{break-inside:avoid;margin:0 0 20px;padding:14px 16px 12px;border:1px solid var(--line);border-top:3px double var(--rule);background:var(--bg)}
 .post header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .post .face{position:relative;flex:none;width:38px;height:38px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:var(--chip);border:1px solid var(--line);font:italic 700 17px/1 ${DISPLAY};color:var(--muted)}
-.post .face img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:grayscale(1) contrast(1.05);transition:filter .2s}
-.post:hover .face img{filter:none}
+.post .face img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .post .who{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.2}
 .post .who b{font:700 15px/1.25 ${SERIF};color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .post .who span{font:500 11.5px/1.3 ${SANS};color:var(--dim);letter-spacing:.02em}
@@ -174,8 +173,25 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 .post p a{color:var(--fg);text-decoration:none}
 .post p a:hover{text-decoration:underline;text-underline-offset:3px}
 .post .pic{aspect-ratio:16/9;margin:0 0 10px;border:1px solid var(--line)}
-.post .foot{padding-top:8px;border-top:1px solid var(--line)}
+.post .foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:8px;border-top:1px solid var(--line)}
+.post .foot .acts{margin:-4px -6px -4px 0}
+.quote{display:block;margin:0 0 12px;padding:10px 12px;border:1px solid var(--line);border-left:3px solid var(--rule);background:var(--tint);color:var(--fg);text-decoration:none}
+.quote:hover{border-color:var(--muted);border-left-color:var(--rule)}
+.q-who{display:flex;align-items:center;gap:6px;margin-bottom:5px;font:500 11.5px/1.3 ${SANS};color:var(--dim);min-width:0}
+.q-who img{width:18px;height:18px;border-radius:50%;object-fit:cover}
+.q-who b{font:700 13px/1.3 ${SERIF};color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q-who span{white-space:nowrap}
+.q-text{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:6;overflow:hidden;white-space:pre-line;font:400 14.5px/1.45 ${SERIF};color:var(--fg)}
 .post .meta a{position:static}
+.briefs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:28px;margin-top:22px;border-top:1px solid var(--rule)}
+.briefs-h{grid-column:1/-1;margin:0;padding:8px 0 2px;font:700 11px/1.4 ${SANS};text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.brief{display:grid;grid-template-columns:minmax(0,1fr) 68px;gap:14px;align-items:start;padding:14px 0;border-bottom:1px solid var(--line)}
+.brief.no-pic{grid-template-columns:minmax(0,1fr)}
+.brief h4{font:600 15.5px/1.3 ${SERIF};display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.brief p{margin:5px 0 0;font:400 13.5px/1.45 ${SERIF};color:var(--muted);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.brief .foot{margin-top:7px}
+.brief .pic{width:68px;aspect-ratio:1}
+.brief .ph{font-size:10px}
 .row{display:flex;gap:14px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
 .cols3 .row{border-top:1px solid var(--line)}
 .row .row-text{flex:1;min-width:0}
@@ -268,7 +284,7 @@ h2 small{color:var(--dim);font-weight:500;font-size:12px;margin-left:6px;letter-
   .front-side>.story:first-child{grid-row:span 3}
   .front-side>.story+.story{margin-top:0}
   .front-side>.story:nth-child(2){border-top:0;padding-top:0}
-  .cols3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cols3,.briefs{grid-template-columns:repeat(2,minmax(0,1fr))}
   .posts{columns:2}
   .logo{font-size:46px}
 }
@@ -299,7 +315,7 @@ h2 small{color:var(--dim);font-weight:500;font-size:12px;margin-left:6px;letter-
   .front-side>.story+.story{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
   .front-side>.story:first-child h3{font-size:21px}
   .story h3{font-size:19px}
-  .cols3{grid-template-columns:minmax(0,1fr)}
+  .cols3,.briefs{grid-template-columns:minmax(0,1fr)}
   .posts{columns:1}
   .intro h1{font-size:32px}
   .spark{grid-template-columns:100px minmax(0,1fr) 34px;gap:8px}
@@ -410,11 +426,17 @@ function pic(it: Ranked, eager = false, cls = ""): string {
   return `<div class="pic${cls}"><span class="ph">${esc(srcName(it))}</span>${img}</div>`;
 }
 
+// The link's site is left out of the source line when the source name already says it.
+const sameAsSource = (it: Item) => {
+  const h = host(it.url).toLowerCase();
+  return !!h && srcName(it).toLowerCase().includes(h);
+};
+
 // "5 min read" or "412 points" leads, in the small caps line under a headline.
 function meta(it: Ranked): string {
   const bits: string[] = [];
   if (it.meta) bits.push(`<span class="rt">${esc(it.meta)}</span>`);
-  bits.push(esc(host(it.url)));
+  if (!sameAsSource(it)) bits.push(esc(host(it.url)));
   if (it.also?.length) bits.push(`also in ${it.also.map((s) => esc(srcById.get(s)?.name ?? s)).join(", ")}`);
   if (it.discuss && it.discuss !== it.url) bits.push(`<a href="${esc(it.discuss)}" target="_blank" rel="noopener">discuss</a>`);
   return `<div class="meta">${bits.join(" · ")}</div>`;
@@ -464,9 +486,27 @@ function story(it: Ranked, o: { pic?: "top" | "thumb" | "none"; showTopic?: bool
 function row(it: Ranked, view: View, extra = ""): string {
   const m = markAttrs(it, view);
   return `<div class="row story t-${it.topic}${m.cls}"${m.data}><div class="row-text">${headline(it, "h4")}
-<div class="meta">${esc(srcName(it))}${it.meta ? ` · <span class="rt">${esc(it.meta)}</span>` : ""} · ${esc(host(it.url))}${extra}</div></div>${
+<div class="meta">${esc(srcName(it))}${it.meta ? ` · <span class="rt">${esc(it.meta)}</span>` : ""}${sameAsSource(it) ? "" : ` · ${esc(host(it.url))}`}${extra}</div></div>${
     it.image ? pic(it) : ""
   }${acts(it, view)}</div>`;
+}
+
+// The rest of a section, after its lead and side column: compact briefs in three ruled
+// columns. Headline, one or two lines of summary, the source, and a small square picture.
+function brief(it: Ranked, view: View): string {
+  const m = markAttrs(it, view);
+  const text = it.brief ?? it.summary;
+  return `<article class="brief story t-${it.topic}${it.image ? "" : " no-pic"}${m.cls}"${m.data}><div class="brief-text">${headline(it, "h4")}${
+    text ? `<p>${esc(text)}</p>` : ""
+  }<div class="foot"><div class="meta">${esc(srcName(it))}${it.meta ? ` · <span class="rt">${esc(it.meta)}</span>` : ""}${
+    sameAsSource(it) ? "" : ` · ${esc(host(it.url))}`
+  }</div>${acts(it, view)}</div></div>${it.image ? pic(it) : ""}</article>`;
+}
+
+function briefs(list: Ranked[], label: string, view: View): string {
+  return list.length
+    ? `<div class="briefs"><h3 class="briefs-h">More in ${esc(label)}</h3>${list.map((it) => brief(it, view)).join("")}</div>`
+    : "";
 }
 
 // Stories read back from D1 (search, saved) as rows, with a link to their edition.
@@ -543,7 +583,7 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
           ? `<div class="col">${side.map((it, i) => story(it, { pic: i < 2 ? "thumb" : "none", tag: "h4" }, view)).join("")}</div>`
           : "";
         const foldedHtml = folded.length
-          ? `<div class="cols3">${folded.map((it) => row(it, view)).join("")}</div>`
+          ? briefs(folded, t.label, view)
           : "";
         return `<section id="${t.id}" class="sec t-${t.id}"><h2 class="sec-h">${esc(t.label)} <small>${total} ${total === 1 ? "story" : "stories"}</small><a class="top" href="#">Top ↑</a></h2>
 <div class="sec-grid${sideCol ? "" : " solo"}"><div class="sec-main"><div class="trio across${across.length === 2 ? " pair" : ""}">${across
@@ -558,7 +598,7 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
         ? `<div class="col">${shown.map((it, i) => story(it, { pic: i < 2 ? "thumb" : "none", tag: "h4" }, view)).join("")}</div>`
         : "";
       const more = hidden.length
-        ? `<div class="cols3">${hidden.map((it) => row(it, view)).join("")}</div>`
+        ? briefs(hidden, t.label, view)
         : "";
       return `<section id="${t.id}" class="sec t-${t.id}"><h2 class="sec-h">${esc(t.label)} <small>${total} ${total === 1 ? "story" : "stories"}</small><a class="top" href="#">Top ↑</a></h2>
 <div class="sec-grid${col ? "" : " solo"}"><div class="sec-main">${lead(head, false, view)}${
@@ -593,6 +633,16 @@ function postAgo(iso?: string): string {
   return h < 1 ? "just now" : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
 }
 
+// The post a post quotes, in a smaller box underneath, linking to the original.
+function quoteBox(it: Item): string {
+  const q = it.quote;
+  if (!q) return "";
+  const face = q.avatar ? `<img src="${esc(q.avatar)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : "";
+  return `<a class="quote" href="${esc(q.url)}" target="_blank" rel="noopener"><span class="q-who">${face}<b>${esc(q.by)}</b> <span>@${esc(q.handle)}${
+    q.date ? ` · ${esc(postAgo(q.date))}` : ""
+  }</span></span><span class="q-text">${esc(q.text)}</span></a>`;
+}
+
 function post(it: Ranked, view: View): string {
   const m = markAttrs(it, view);
   const on = /bsky\.app/.test(it.url) ? "Bluesky" : "X";
@@ -601,7 +651,7 @@ function post(it: Ranked, view: View): string {
     it.avatar ? `<img src="${esc(it.avatar)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""
   }</span>`;
   return `<article class="post story${m.cls}"${m.data}><header>${face}<div class="who"><b>${esc(name)}</b><span>${esc(it.meta ?? "")}</span></div><span class="net">${on === "X" ? "𝕏" : "Bluesky"}</span></header>
-<p><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title)}</a></p>${it.image ? pic(it) : ""}
+<p><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title)}</a></p>${it.image ? pic(it) : ""}${quoteBox(it)}
 <div class="foot"><div class="meta">${esc(postAgo(it.date))}${it.date ? " · " : ""}<a href="${esc(it.url)}" target="_blank" rel="noopener">view on ${on} ↗</a></div>${acts(it, view)}</div></article>`;
 }
 

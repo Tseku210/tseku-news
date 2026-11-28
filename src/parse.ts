@@ -14,6 +14,7 @@ export interface Item {
   also?: string[]; // other Source.ids that carried the same link (a ranking signal)
   by?: string; // author of a social post (display name)
   avatar?: string; // author's profile picture (social posts)
+  quote?: { by: string; handle: string; text: string; url: string; avatar?: string; date?: string }; // post quoted by a social post
 }
 
 const ENTITIES: Record<string, string> = {
