@@ -156,3 +156,33 @@ export async function marksForUrls(env: Env, urls: string[]): Promise<Map<string
   }
   return out;
 }
+
+// Housekeeping for the daily run: forget stories from editions older than
+// `keepDays`, with their search rows, summaries and marks, and the old editions
+// in KV. Liked and saved stories stay in D1 for good, so the Liked and Saved
+// pages keep them (their edition page goes, though).
+export async function pruneOld(env: Env, today: string, keepDays = 90): Promise<{ stories: number; editions: number }> {
+  const cutoff = new Date(Date.parse(today) - keepDays * 86_400_000).toISOString().slice(0, 10);
+  const cutoffMs = Date.parse(cutoff);
+  const old = `SELECT rowid FROM stories WHERE edition < ?1
+    AND url NOT IN (SELECT url FROM marks WHERE liked_at IS NOT NULL OR saved_at IS NOT NULL)`;
+  const [, gone] = await env.DB.batch([
+    // stories_fts is an external-content index, so its rows are removed with the
+    // special 'delete' insert, using the values that were indexed.
+    env.DB.prepare(
+      `INSERT INTO stories_fts(stories_fts, rowid, title, summary) SELECT 'delete', rowid, title, summary FROM stories WHERE rowid IN (${old})`,
+    ).bind(cutoff),
+    env.DB.prepare(`DELETE FROM stories WHERE rowid IN (${old})`).bind(cutoff),
+    env.DB.prepare(`DELETE FROM marks WHERE url NOT IN (SELECT url FROM stories)`),
+    env.DB.prepare(`DELETE FROM summaries WHERE created_at < ?1 AND url NOT IN (SELECT url FROM stories)`).bind(cutoffMs),
+  ]);
+
+  // Old editions would otherwise stay browsable for 180 days and be indexed again on a visit.
+  const dates = (await env.NEWS.get<string[]>("dates", "json")) ?? [];
+  const drop = dates.filter((d) => d < cutoff);
+  if (drop.length) {
+    await env.NEWS.put("dates", JSON.stringify(dates.filter((d) => d >= cutoff)));
+    for (const d of drop) await Promise.all([env.NEWS.delete(`edition:${d}`), env.NEWS.delete(`idx:${d}`)]);
+  }
+  return { stories: gone.meta.changes ?? 0, editions: drop.length };
+}

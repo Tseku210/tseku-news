@@ -3,7 +3,7 @@ import { metaImage, pageText, parseFeed, parseHn, parseLinks, parseGithubTrendin
 import {
   renderArchive, renderBuilding, renderEdition, renderFeed, renderLogin, renderNotFound, renderSaved, renderSearch, renderTrends, type View,
 } from "./render";
-import { backfill, ensureIndexed, listMarked, marksFor, marksForUrls, readsByTopic, search, setMark, signalStats, type MarkKind } from "./db";
+import { backfill, ensureIndexed, listMarked, marksFor, marksForUrls, pruneOld, readsByTopic, search, setMark, signalStats, type MarkKind } from "./db";
 import { isSignedIn, sameOrigin, signIn, signOutCookie } from "./auth";
 import { computeTrends } from "./trends";
 import { addBriefs, cachedBriefs } from "./summarize";
@@ -212,6 +212,13 @@ export async function runDaily(env: Env, date: string, now: number): Promise<Edi
     await backfill(env);
   } catch (e) {
     console.error("indexing failed", e);
+  }
+  // Keep 90 days of stories (liked and saved ones are kept for good).
+  try {
+    const pruned = await pruneOld(env, date);
+    if (pruned.stories || pruned.editions) console.log("pruned", pruned);
+  } catch (e) {
+    console.error("pruning failed", e);
   }
   return edition;
 }
