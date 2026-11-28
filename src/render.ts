@@ -155,12 +155,6 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 .story.big p{font-size:16px;-webkit-line-clamp:6}
 .story p.ai{display:block;overflow:visible}
 .trio+.trio{margin-top:18px;border-top:1px solid var(--line)}
-details.more{margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
-details.more summary{cursor:pointer;list-style:none;display:inline-block;font:600 11.5px/1.4 ${SANS};text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-details.more summary::after{content:" ↓"}
-details.more[open] summary::after{content:" ↑"}
-details.more summary::-webkit-details-marker{display:none}
-details.more summary:hover{color:var(--fg)}
 .cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:24px;margin-top:6px}
 
 /* Rows: compact stories in lists (more, search, saved) */
@@ -489,7 +483,7 @@ function storyRows(rows: StoryRow[], view: View): string {
 }
 
 // Under a section's lead go two text stories, so the lead's column is about as tall as the
-// side column next to it; the side column holds three more and the rest fold away.
+// side column next to it; the side column holds three more and the rest follow as rows underneath.
 const PAIR = 2;
 const SIDE_ROWS = 3;
 
@@ -549,7 +543,7 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
           ? `<div class="col">${side.map((it, i) => story(it, { pic: i < 2 ? "thumb" : "none", tag: "h4" }, view)).join("")}</div>`
           : "";
         const foldedHtml = folded.length
-          ? `<details class="more"><summary>${folded.length} more in ${esc(t.label)}</summary><div class="cols3">${folded.map((it) => row(it, view)).join("")}</div></details>`
+          ? `<div class="cols3">${folded.map((it) => row(it, view)).join("")}</div>`
           : "";
         return `<section id="${t.id}" class="sec t-${t.id}"><h2 class="sec-h">${esc(t.label)} <small>${total} ${total === 1 ? "story" : "stories"}</small><a class="top" href="#">Top ↑</a></h2>
 <div class="sec-grid${sideCol ? "" : " solo"}"><div class="sec-main"><div class="trio across${across.length === 2 ? " pair" : ""}">${across
@@ -564,7 +558,7 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
         ? `<div class="col">${shown.map((it, i) => story(it, { pic: i < 2 ? "thumb" : "none", tag: "h4" }, view)).join("")}</div>`
         : "";
       const more = hidden.length
-        ? `<details class="more"><summary>${hidden.length} more in ${esc(t.label)}</summary><div class="cols3">${hidden.map((it) => row(it, view)).join("")}</div></details>`
+        ? `<div class="cols3">${hidden.map((it) => row(it, view)).join("")}</div>`
         : "";
       return `<section id="${t.id}" class="sec t-${t.id}"><h2 class="sec-h">${esc(t.label)} <small>${total} ${total === 1 ? "story" : "stories"}</small><a class="top" href="#">Top ↑</a></h2>
 <div class="sec-grid${col ? "" : " solo"}"><div class="sec-main">${lead(head, false, view)}${
