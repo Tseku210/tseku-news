@@ -155,12 +155,6 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 .story.big p{font-size:16px;-webkit-line-clamp:6}
 .story p.ai{display:block;overflow:visible}
 .trio+.trio{margin-top:18px;border-top:1px solid var(--line)}
-details.more{margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
-details.more summary{cursor:pointer;list-style:none;display:inline-block;font:600 11.5px/1.4 ${SANS};text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-details.more summary::after{content:" ↓"}
-details.more[open] summary::after{content:" ↑"}
-details.more summary::-webkit-details-marker{display:none}
-details.more summary:hover{color:var(--fg)}
 .cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:24px;margin-top:6px}
 
 /* Rows: compact stories in lists (more, search, saved) */
@@ -489,7 +483,7 @@ function storyRows(rows: StoryRow[], view: View): string {
 }
 
 // Under a section's lead go two text stories, so the lead's column is about as tall as the
-// side column next to it; the side column holds three more and the rest fold away.
+// side column next to it; the side column holds three more and the rest follow as rows underneath.
 const PAIR = 2;
 const SIDE_ROWS = 3;
 
@@ -549,7 +543,7 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
           ? `<div class="col">${side.map((it, i) => story(it, { pic: i < 2 ? "thumb" : "none", tag: "h4" }, view)).join("")}</div>`
           : "";
         const foldedHtml = folded.length
-          ? `<details class="more"><summary>${folded.length} more in ${esc(t.label)}</summary><div class="cols3">${folded.map((it) => row(it, view)).join("")}</div></details>`
+          ? `<div class="cols3">${folded.map((it) => row(it, view)).join("")}</div>`
           : "";
         return `<section id="${t.id}" class="sec t-${t.id}"><h2 class="sec-h">${esc(t.label)} <small>${total} ${total === 1 ? "story" : "stories"}</small><a class="top" href="#">Top ↑</a></h2>
 <div class="sec-grid${sideCol ? "" : " solo"}"><div class="sec-main"><div class="trio across${across.length === 2 ? " pair" : ""}">${across
@@ -564,7 +558,7 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
         ? `<div class="col">${shown.map((it, i) => story(it, { pic: i < 2 ? "thumb" : "none", tag: "h4" }, view)).join("")}</div>`
         : "";
       const more = hidden.length
-        ? `<details class="more"><summary>${hidden.length} more in ${esc(t.label)}</summary><div class="cols3">${hidden.map((it) => row(it, view)).join("")}</div></details>`
+        ? `<div class="cols3">${hidden.map((it) => row(it, view)).join("")}</div>`
         : "";
       return `<section id="${t.id}" class="sec t-${t.id}"><h2 class="sec-h">${esc(t.label)} <small>${total} ${total === 1 ? "story" : "stories"}</small><a class="top" href="#">Top ↑</a></h2>
 <div class="sec-grid${col ? "" : " solo"}"><div class="sec-main">${lead(head, false, view)}${
@@ -591,8 +585,7 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
   return page(`news.tseku.dev · ${ed.date}`, body, { sections: sectionLinks, view, here: isLatest ? "/" : "", dateline, big: true });
 }
 
-// Posts as short notes in three columns, newest first: who, the post, when. Nine are shown.
-const POSTS_SHOWN = 9;
+// Posts as short notes in three columns, newest first, all shown: who, the post, when.
 
 function postAgo(iso?: string): string {
   if (!iso) return "";
@@ -614,14 +607,8 @@ function post(it: Ranked, view: View): string {
 
 function postsSection(list: Ranked[], view: View): string {
   const posts = [...list].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
-  const shown = posts.slice(0, POSTS_SHOWN);
-  const rest = posts.slice(POSTS_SHOWN);
   return `<section id="posts" class="sec t-posts"><h2 class="sec-h">Posts <small>${posts.length} from people you follow</small><a class="top" href="#">Top ↑</a></h2>
-<div class="posts">${shown.map((it) => post(it, view)).join("")}</div>${
-    rest.length
-      ? `<details class="more"><summary>${rest.length} more posts</summary><div class="posts">${rest.map((it) => post(it, view)).join("")}</div></details>`
-      : ""
-  }</section>`;
+<div class="posts">${posts.map((it) => post(it, view)).join("")}</div></section>`;
 }
 
 export function renderArchive(dates: string[], view: View = PUBLIC): string {
