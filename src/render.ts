@@ -48,9 +48,9 @@ function shortDate(d: string): string {
 // Newsprint palettes. Topic hues survive only in small places (trend charts,
 // the tint behind a story that has no picture) so the page stays black on paper.
 const LIGHT = `--bg:#fbfaf6;--fg:#121212;--ink:#121212;--muted:#555350;--dim:#8a8781;--line:#dcd9d2;--rule:#121212;--chip:#efede7;--tint:#e9e6de;--link:#326891;--red:#c2281f;
---ai:#6f4bd8;--dev:#1f62c9;--startups:#c4530f;--tech:#0c7f6c;--mongolia:#bf2e61;--blogs:#957400`;
+--ai:#6f4bd8;--dev:#1f62c9;--startups:#c4530f;--tech:#0c7f6c;--mongolia:#bf2e61;--blogs:#957400;--posts:#3d3d3d`;
 const DARK = `--bg:#121212;--fg:#e9e6df;--ink:#f1eee8;--muted:#aaa69e;--dim:#77746e;--line:#2d2c2a;--rule:#cfcbc2;--chip:#1e1e1d;--tint:#1c1c1b;--link:#8fb8dc;--red:#ff6a5c;
---ai:#a28bff;--dev:#58a6ff;--startups:#ff8a3d;--tech:#2ec4a6;--mongolia:#ff6b9a;--blogs:#e3b341`;
+--ai:#a28bff;--dev:#58a6ff;--startups:#ff8a3d;--tech:#2ec4a6;--mongolia:#ff6b9a;--blogs:#e3b341;--posts:#b9b5ad`;
 
 const SERIF = `"Source Serif 4","Source Serif Pro",Georgia,"Times New Roman",serif`;
 const DISPLAY = `"Playfair Display",${SERIF}`;
@@ -65,7 +65,7 @@ html{-webkit-text-size-adjust:100%;scroll-padding-top:12px}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 ${SERIF};-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
 .wrap{max-width:1200px;margin:0 auto;padding:0 24px 64px}
-.t-ai{--c:var(--ai)}.t-dev{--c:var(--dev)}.t-startups{--c:var(--startups)}.t-tech{--c:var(--tech)}.t-mongolia{--c:var(--mongolia)}.t-blogs{--c:var(--blogs)}
+.t-ai{--c:var(--ai)}.t-dev{--c:var(--dev)}.t-startups{--c:var(--startups)}.t-tech{--c:var(--tech)}.t-mongolia{--c:var(--mongolia)}.t-blogs{--c:var(--blogs)}.t-posts{--c:var(--posts)}
 
 /* Masthead: date and edition on the left, nameplate in the middle, tools on the right,
    section links under a double rule. */
@@ -166,6 +166,22 @@ details.more summary:hover{color:var(--fg)}
 /* Rows: compact stories in lists (more, search, saved) */
 .list{display:flex;flex-direction:column}
 .list>.row:first-child{border-top:0}
+.posts{display:block;columns:3;column-gap:20px;margin-top:14px}
+.post{break-inside:avoid;margin:0 0 20px;padding:14px 16px 12px;border:1px solid var(--line);border-top:3px double var(--rule);background:var(--bg)}
+.post header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.post .face{position:relative;flex:none;width:38px;height:38px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:var(--chip);border:1px solid var(--line);font:italic 700 17px/1 ${DISPLAY};color:var(--muted)}
+.post .face img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:grayscale(1) contrast(1.05);transition:filter .2s}
+.post:hover .face img{filter:none}
+.post .who{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.2}
+.post .who b{font:700 15px/1.25 ${SERIF};color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.post .who span{font:500 11.5px/1.3 ${SANS};color:var(--dim);letter-spacing:.02em}
+.post .net{flex:none;align-self:flex-start;font:600 10.5px/1.6 ${SANS};letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.post p{font:400 16px/1.5 ${SERIF};margin:0 0 10px;white-space:pre-line;overflow-wrap:anywhere}
+.post p a{color:var(--fg);text-decoration:none}
+.post p a:hover{text-decoration:underline;text-underline-offset:3px}
+.post .pic{aspect-ratio:16/9;margin:0 0 10px;border:1px solid var(--line)}
+.post .foot{padding-top:8px;border-top:1px solid var(--line)}
+.post .meta a{position:static}
 .row{display:flex;gap:14px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
 .cols3 .row{border-top:1px solid var(--line)}
 .row .row-text{flex:1;min-width:0}
@@ -259,6 +275,7 @@ h2 small{color:var(--dim);font-weight:500;font-size:12px;margin-left:6px;letter-
   .front-side>.story+.story{margin-top:0}
   .front-side>.story:nth-child(2){border-top:0;padding-top:0}
   .cols3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .posts{columns:2}
   .logo{font-size:46px}
 }
 @media (max-width:640px){
@@ -289,6 +306,7 @@ h2 small{color:var(--dim);font-weight:500;font-size:12px;margin-left:6px;letter-
   .front-side>.story:first-child h3{font-size:21px}
   .story h3{font-size:19px}
   .cols3{grid-template-columns:minmax(0,1fr)}
+  .posts{columns:1}
   .intro h1{font-size:32px}
   .spark{grid-template-columns:100px minmax(0,1fr) 34px;gap:8px}
   .axis{margin:2px 42px 0 108px}
@@ -477,7 +495,8 @@ const SIDE_ROWS = 3;
 
 export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, view: View = PUBLIC): string {
   const ranked = rank(ed.items, Date.parse(ed.generatedAt)).filter((i) => !view.marks?.get(i.url)?.hidden);
-  const top = topPicks(ranked, 10);
+  // Posts from people get their own section at the end and never make the front page.
+  const top = topPicks(ranked.filter((i) => i.topic !== "posts"), 10);
   const topUrls = new Set(top.map((i) => i.url));
 
   // Front page: lead with picture and two rows of three stories under it; on the right a
@@ -515,6 +534,7 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
   const sections = topics
     .filter((x) => x.list.length)
     .map(({ t, list, total }) => {
+      if (t.id === "posts") return postsSection(list, view);
       // Lead with the best story that has a picture, if one is near the top.
       const li = list.slice(0, 3).findIndex((it) => it.image);
       const items = li > 0 ? [list[li], ...list.filter((_, i) => i !== li)] : list;
@@ -569,6 +589,39 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
   const body = `${front}${sections || (top.length ? "" : `<p class="empty" style="margin-top:24px">Nothing new today.</p>`)}${pager}
 <footer style="border:0;margin-top:20px;padding-top:0"><details><summary>${okSources}/${SOURCES.length} sources worked today</summary><ul class="src">${srcList}</ul></details></footer>`;
   return page(`news.tseku.dev · ${ed.date}`, body, { sections: sectionLinks, view, here: isLatest ? "/" : "", dateline, big: true });
+}
+
+// Posts as short notes in three columns, newest first: who, the post, when. Nine are shown.
+const POSTS_SHOWN = 9;
+
+function postAgo(iso?: string): string {
+  if (!iso) return "";
+  const h = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 3600_000));
+  return h < 1 ? "just now" : h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
+}
+
+function post(it: Ranked, view: View): string {
+  const m = markAttrs(it, view);
+  const on = /bsky\.app/.test(it.url) ? "Bluesky" : "X";
+  const name = it.by ?? srcName(it);
+  const face = `<span class="face" aria-hidden="true">${esc([...name][0]?.toUpperCase() ?? "?")}${
+    it.avatar ? `<img src="${esc(it.avatar)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""
+  }</span>`;
+  return `<article class="post story${m.cls}"${m.data}><header>${face}<div class="who"><b>${esc(name)}</b><span>${esc(it.meta ?? "")}</span></div><span class="net">${on === "X" ? "𝕏" : "Bluesky"}</span></header>
+<p><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title)}</a></p>${it.image ? pic(it) : ""}
+<div class="foot"><div class="meta">${esc(postAgo(it.date))}${it.date ? " · " : ""}<a href="${esc(it.url)}" target="_blank" rel="noopener">view on ${on} ↗</a></div>${acts(it, view)}</div></article>`;
+}
+
+function postsSection(list: Ranked[], view: View): string {
+  const posts = [...list].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
+  const shown = posts.slice(0, POSTS_SHOWN);
+  const rest = posts.slice(POSTS_SHOWN);
+  return `<section id="posts" class="sec t-posts"><h2 class="sec-h">Posts <small>${posts.length} from people you follow</small><a class="top" href="#">Top ↑</a></h2>
+<div class="posts">${shown.map((it) => post(it, view)).join("")}</div>${
+    rest.length
+      ? `<details class="more"><summary>${rest.length} more posts</summary><div class="posts">${rest.map((it) => post(it, view)).join("")}</div></details>`
+      : ""
+  }</section>`;
 }
 
 export function renderArchive(dates: string[], view: View = PUBLIC): string {
