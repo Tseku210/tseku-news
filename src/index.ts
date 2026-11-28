@@ -7,13 +7,14 @@ import { backfill, ensureIndexed, listMarked, marksFor, marksForUrls, readsByTop
 import { isSignedIn, sameOrigin, signIn, signOutCookie } from "./auth";
 import { computeTrends } from "./trends";
 import { addBriefs, cachedBriefs } from "./summarize";
-import { bskyFeedUrl, mergePosts, parseBsky, parseXTimeline, xHeaders, xTimelineUrl } from "./social";
+import { bskyFeedUrl, fetchXTimeline, mergePosts, parseBsky, parseXTimeline } from "./social";
 
 export interface Env {
   NEWS: KVNamespace;
   DB: D1Database;
   AI?: Ai; // Workers AI, for the card summaries (optional: cards fall back to excerpts)
   ADMIN_TOKEN?: string; // secret: sign-in passphrase
+  X_COOKIE?: string; // secret: "auth_token=…; ct0=…" from a signed-in x.com session (see social.ts)
 }
 
 export interface Edition {
@@ -33,9 +34,9 @@ export function ubDate(ms: number): string {
   return new Date(ms + 8 * 3600_000).toISOString().slice(0, 10);
 }
 
-async function get(url: string, accept: string, headers: Record<string, string> = { "user-agent": UA, accept }): Promise<string> {
+async function get(url: string, accept: string): Promise<string> {
   const res = await fetch(url, {
-    headers,
+    headers: { "user-agent": UA, accept },
     signal: AbortSignal.timeout(15_000),
     cf: { cacheTtl: 600 },
   } as RequestInit);
@@ -44,7 +45,7 @@ async function get(url: string, accept: string, headers: Record<string, string> 
   return text.length > 1_500_000 ? text.slice(0, 1_500_000) : text;
 }
 
-async function collectSource(src: Source, seen: Set<string>, now: number): Promise<Item[]> {
+async function collectSource(src: Source, seen: Set<string>, now: number, env: Env): Promise<Item[]> {
   let items: Item[] = [];
   switch (src.kind) {
     case "rss":
@@ -79,7 +80,7 @@ async function collectSource(src: Source, seen: Set<string>, now: number): Promi
     case "social": {
       // X and Bluesky side by side; the account only fails when every place it is read from fails.
       const tries: Promise<Item[]>[] = [];
-      if (src.x) tries.push(get(xTimelineUrl(src.x), "text/html", xHeaders).then((h) => parseXTimeline(h, src.x!, src.id)));
+      if (src.x) tries.push(fetchXTimeline(src.x, env.X_COOKIE).then((h) => parseXTimeline(h, src.x!, src.id)));
       if (src.bsky) tries.push(get(bskyFeedUrl(src.bsky), "application/json").then((j) => parseBsky(j, src.id)));
       const got = await Promise.allSettled(tries);
       const ok = got.flatMap((g) => (g.status === "fulfilled" ? [g.value] : []));
@@ -171,7 +172,7 @@ export async function runDaily(env: Env, date: string, now: number): Promise<Edi
   const results = await Promise.all(
     SOURCES.map(async (src): Promise<[string, Collected]> => {
       try {
-        return [src.id, { items: await collectSource(src, seen, now) }];
+        return [src.id, { items: await collectSource(src, seen, now, env) }];
       } catch (e) {
         return [src.id, { items: [], error: String((e as Error)?.message ?? e).slice(0, 120) }];
       }

@@ -3,10 +3,13 @@
 // Each account is read from two free places, and the two are merged:
 //   Bluesky  the public AppView API (app.bsky.feed.getAuthorFeed), JSON, no key. Used only
 //            for handles that are the person's own domain, so a handle can't be someone else.
-//   X        the profile timeline behind X's embed widget (syndication.twitter.com). It is
-//            undocumented: it sometimes lists popular old posts instead of new ones, and it
-//            can stop working. Old posts are dropped by the edition's age filter, and a
-//            failed fetch just leaves that account out for the day.
+//   X        the profile timeline behind X's embed widget (syndication.twitter.com). Signed
+//            out it serves posts about a year old, so it is read with Tseku's own x.com
+//            session cookie (secret X_COOKIE: "auth_token=…; ct0=…"). It is undocumented and
+//            rate limited, so requests go one at a time with a pause between them. Old posts
+//            are dropped by the edition's age filter, and a failed fetch just leaves that
+//            account out for the day. When the cookie expires (logging out of x.com ends it),
+//            set a new one with `wrangler secret put X_COOKIE`.
 // Replies and reposts are skipped; a person's own posts are kept.
 
 import { decodeEntities, imageUrl, type Item } from "./parse";
@@ -76,10 +79,39 @@ export function parseBsky(json: string, source: string): Item[] {
 
 // ---- X ----
 
-export const xTimelineUrl = (handle: string) =>
+const xTimelineUrl = (handle: string) =>
   `https://syndication.twitter.com/srv/timeline-profile/screen-name/${encodeURIComponent(handle)}?showReplies=false`;
 
-export const xHeaders = { "user-agent": BROWSER_UA, accept: "text/html", referer: "https://platform.twitter.com/" };
+const X_GAP_MS = 2_000; // pause between X requests
+const X_RETRY_MS = 15_000; // wait once after "too many requests"
+let xQueue: Promise<unknown> = Promise.resolve();
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function xFetch(handle: string, cookie?: string): Promise<string> {
+  const headers: Record<string, string> = { "user-agent": BROWSER_UA, accept: "text/html", referer: "https://platform.twitter.com/" };
+  if (cookie) headers.cookie = cookie;
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(xTimelineUrl(handle), { headers, signal: AbortSignal.timeout(15_000) });
+    if (res.status === 429 && attempt === 0) {
+      await res.body?.cancel();
+      await sleep(X_RETRY_MS);
+      continue;
+    }
+    if (!res.ok) {
+      await res.body?.cancel();
+      throw new Error(`X HTTP ${res.status}`);
+    }
+    return res.text();
+  }
+}
+
+// One X account's timeline. Calls wait their turn, so all accounts together are read
+// one after another rather than all at once.
+export function fetchXTimeline(handle: string, cookie?: string): Promise<string> {
+  const run = xQueue.then(() => xFetch(handle, cookie));
+  xQueue = run.catch(() => {}).then(() => sleep(X_GAP_MS));
+  return run;
+}
 
 interface Tweet {
   id_str?: string;
