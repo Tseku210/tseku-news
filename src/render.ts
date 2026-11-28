@@ -65,6 +65,9 @@ const SERIF = `"Source Serif 4","Source Serif Pro",Georgia,"Times New Roman",ser
 const DISPLAY = `"Playfair Display",${SERIF}`;
 const BLACKLETTER = `"UnifrakturMaguntia","Old English Text MT",${DISPLAY}`;
 const SANS = `"Libre Franklin","Franklin Gothic Medium","Helvetica Neue",Arial,sans-serif`;
+// Motion curves for the nameplate ink-in, the only motion on the site.
+const EASE_INK = "cubic-bezier(.2,.7,.2,1)";
+const EASE_RULE = "cubic-bezier(.6,0,.2,1)";
 
 const CSS = `
 :root{${LIGHT}}
@@ -116,20 +119,25 @@ a{color:inherit;text-decoration:none}
 .kick span{color:var(--muted);font-weight:500}
 .story{position:relative}
 .story h3,.story h4{margin:0;font-family:${SERIF};font-weight:700;color:var(--ink);overflow-wrap:anywhere;letter-spacing:-.005em;text-wrap:balance}
-.story h3 a,.story h4 a{background:linear-gradient(currentColor,currentColor) 0 100%/0 1px no-repeat;-webkit-box-decoration-break:clone;box-decoration-break:clone;transition:background-size .35s cubic-bezier(.2,.7,.2,1)}
+.story h3 a,.story h4 a{background:linear-gradient(currentColor,currentColor) 0 100%/0 1px no-repeat;-webkit-box-decoration-break:clone;box-decoration-break:clone}
 .story h3{font-size:20px;line-height:1.2}
 .story h4{font-size:16.5px;line-height:1.25}
 .story h3 a::after,.story h4 a::after{content:"";position:absolute;inset:0;z-index:1}
-.story:hover h3 a,.story:hover h4 a,.story h3 a:focus-visible,.story h4 a:focus-visible{background-size:100% 1px}
-.story p{margin:7px 0 0;font-size:15px;line-height:1.45;color:var(--muted);overflow-wrap:break-word;text-align:justify;-webkit-hyphens:auto;hyphens:auto;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
-.meta{font:500 10.5px/1.5 ${SANS};letter-spacing:.06em;text-transform:uppercase;color:var(--dim);overflow-wrap:anywhere}
+@media (hover:hover){.story:hover h3 a,.story:hover h4 a{background-size:100% 1px}}
+.story h3 a:focus-visible,.story h4 a:focus-visible{background-size:100% 1px}
+.story p{margin:7px 0 0;font-size:15px;line-height:1.45;color:var(--muted);overflow-wrap:break-word;text-align:left;text-wrap:pretty;-webkit-hyphens:auto;hyphens:auto;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
+.meta{font:italic 400 12.5px/1.45 ${SERIF};color:var(--dim);overflow-wrap:anywhere}
 .meta a{position:relative;z-index:2;color:var(--muted);text-decoration:underline;text-underline-offset:2px}
-.meta .rt{color:var(--muted);font-weight:600}
+.meta .rt{color:var(--muted)}
 .foot{margin-top:9px}
 .foot .acts{margin:4px 0 -6px -7px}
 
 .pic{position:relative;aspect-ratio:3/2;overflow:hidden;background:color-mix(in srgb,var(--c,var(--dim)) 16%,var(--tint))}
 .pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:var(--tint)}
+/* Large pictures are shown whole, at their own shape, so screenshots aren't cut mid-word.
+   If the image fails to load it is removed and the hatched panel keeps its 3:2 box. */
+.lead .pic:has(img),.pic-top>.pic:has(img){aspect-ratio:auto}
+.lead .pic img,.pic-top>.pic img{position:relative;display:block;height:auto;max-height:560px;object-fit:contain}
 .ph{position:absolute;inset:0;display:grid;place-items:center;padding:12px;text-align:center;font:italic 600 22px/1.15 ${DISPLAY};color:color-mix(in srgb,var(--c,var(--fg)) 55%,var(--fg));opacity:.55;
   background:repeating-linear-gradient(135deg,transparent 0 7px,color-mix(in srgb,var(--fg) 5%,transparent) 7px 8px)}
 figure{margin:0}
@@ -146,7 +154,7 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 .lead-head{grid-column:1/-1;margin-bottom:14px}
 .lead .lead-text{display:flex;flex-direction:column}
 .lead h3{font-size:42px;line-height:1.06;letter-spacing:-.02em}
-.lead .lead-text>p{display:block;margin-top:0;font-size:16.5px;line-height:1.5;color:var(--fg)}
+.lead .lead-text>p{display:block;margin-top:0;font-size:16.5px;line-height:1.5;color:var(--fg);text-align:justify}
 .lead.no-pic{grid-template-columns:minmax(0,1fr)}
 .lead.no-pic h3{font-size:46px;max-width:22ch}
 .lead.no-pic .lead-text>p{font-size:18px;max-width:62ch}
@@ -185,10 +193,20 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 .sec-main{padding-right:24px;border-right:1px solid var(--line)}
 .sec-main:only-child{border-right:0;padding-right:0}
 .sec-grid.solo{grid-template-columns:minmax(0,1fr)}
-.solo .lead .pic{aspect-ratio:21/9}
+.solo .lead .pic:not(:has(img)){aspect-ratio:21/9}
 .sec-main .lead h3{font-size:32px}
 .sec-main>.lead:last-child,.front-main>.lead:last-child{border-bottom:0;padding-bottom:0}
-.sec-grid>.col{padding-left:24px}
+.sec-grid>.col{padding-left:24px;display:flex;flex-direction:column;justify-content:space-between}
+.sec-grid.flip{grid-template-columns:minmax(0,1fr) minmax(0,2.3fr)}
+.sec-grid.flip>.col{order:-1;padding:0 24px 0 0;border-right:1px solid var(--line)}
+.sec-grid.flip>.sec-main{padding:0 0 0 24px;border-right:0}
+/* A short section runs as plain text columns, with no picture or rail. */
+.sec-cols{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr))}
+.sec-cols>.story{padding:0 18px}
+.sec-cols>.story:first-child{padding-left:0}
+.sec-cols>.story:last-child{padding-right:0}
+.sec-cols>.story+.story{border-left:1px solid var(--line)}
+.sec-cols .story p{max-width:68ch}
 .trio.pair{grid-template-columns:repeat(2,minmax(0,1fr))}
 .trio.across{padding-top:0}
 .story.big h3{font-size:28px;line-height:1.12;letter-spacing:-.015em}
@@ -238,16 +256,13 @@ figcaption{margin-top:6px;font:400 11px/1.4 ${SANS};color:var(--dim);text-align:
 .q-who span{white-space:nowrap}
 .q-text{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:6;overflow:hidden;white-space:pre-line;font:400 14.5px/1.45 ${SERIF};color:var(--fg)}
 .post .meta a{position:static}
-.briefs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:28px;margin-top:22px;border-top:1px solid var(--rule)}
-.briefs-h{grid-column:1/-1;margin:0;padding:8px 0 2px;font:700 11px/1.4 ${SANS};text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.briefs{columns:3;column-gap:28px;column-rule:1px solid var(--line);margin-top:22px;border-top:1px solid var(--rule)}
+.briefs-h{column-span:all;margin:0;padding:8px 0 2px;font:700 11px/1.4 ${SANS};text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
 .briefs-h::before{content:"\\25A0";margin-right:7px;color:var(--fg)}
-.brief{display:grid;grid-template-columns:minmax(0,1fr) 68px;gap:14px;align-items:start;padding:14px 0;border-bottom:1px solid var(--line)}
-.brief.no-pic{grid-template-columns:minmax(0,1fr)}
+.brief{break-inside:avoid;padding:12px 0;border-bottom:1px solid var(--line)}
 .brief h4{font:600 15.5px/1.3 ${SERIF};display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
-.brief p{margin:5px 0 0;font:400 13.5px/1.45 ${SERIF};color:var(--muted);text-align:justify;-webkit-hyphens:auto;hyphens:auto;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.brief p{margin:5px 0 0;font:400 13.5px/1.45 ${SERIF};color:var(--muted);text-align:left;text-wrap:pretty;-webkit-hyphens:auto;hyphens:auto;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .brief .foot{margin-top:7px}
-.brief .pic{width:68px;aspect-ratio:1}
-.brief .ph{font-size:10px}
 .row{display:flex;gap:14px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
 .cols3 .row{border-top:1px solid var(--line)}
 .row .row-text{flex:1;min-width:0}
@@ -284,7 +299,7 @@ h2 small{color:var(--dim);font-weight:500;font-size:12px;margin-left:6px;letter-
 /* Like / save / hide sit on their own line under the source line. With a mouse they
    appear when the story is hovered or focused; a liked or saved mark always shows. */
 .acts{position:relative;z-index:2;display:flex;gap:2px;flex:none}
-.acts button{appearance:none;border:0;background:transparent;color:var(--dim);width:28px;height:28px;cursor:pointer;display:grid;place-items:center;padding:0;transition:opacity .15s,color .15s}
+.acts button{appearance:none;border:0;background:transparent;color:var(--dim);width:28px;height:28px;cursor:pointer;display:grid;place-items:center;padding:0}
 .acts svg{width:15px;height:15px}
 @media (hover:hover){
   .acts button{opacity:0}
@@ -334,14 +349,17 @@ h2 small{color:var(--dim);font-weight:500;font-size:12px;margin-left:6px;letter-
 .err-msg{color:var(--red);font:400 14px/1.4 ${SANS}}
 
 @media (max-width:960px){
-  .front,.sec-grid{grid-template-columns:minmax(0,1fr)}
+  .front,.sec-grid,.sec-grid.flip{grid-template-columns:minmax(0,1fr)}
+  .sec-grid.flip>.col{order:0;padding:18px 0 0;border-right:0}
+  .sec-grid.flip>.sec-main{padding-left:0}
   .front-main,.sec-main{padding-right:0;border-right:0}
   .front-side,.sec-grid>.col{padding-left:0;margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
   .front-side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px}
   .front-side>.story:first-child{grid-row:span 3}
   .front-side>.story+.story{margin-top:0}
   .front-side>.story:nth-child(2){border-top:0;padding-top:0}
-  .cols3,.briefs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cols3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .briefs{columns:2}
   .posts{columns:2}
   .logo{font-size:60px}
   .ear{max-width:150px;font-size:10.5px}
@@ -369,6 +387,7 @@ h2 small{color:var(--dim);font-weight:500;font-size:12px;margin-left:6px;letter-
   .lead-head{margin:14px 0 10px}
   .lead.no-pic h3{font-size:32px}
   .lead.no-pic .lead-text>p{font-size:16.5px}
+  .lead .lead-text>p{text-align:left;text-wrap:pretty}
   .sec-h{font-size:26px;flex-wrap:wrap;row-gap:2px}
   .pull blockquote{font-size:20px}
   .trio,.trio.pair{grid-template-columns:minmax(0,1fr);padding-top:0}
@@ -379,7 +398,11 @@ h2 small{color:var(--dim);font-weight:500;font-size:12px;margin-left:6px;letter-
   .front-side>.story+.story{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
   .front-side>.story:first-child h3{font-size:21px}
   .story h3{font-size:19px}
-  .cols3,.briefs,.repos{grid-template-columns:minmax(0,1fr)}
+  .cols3,.repos{grid-template-columns:minmax(0,1fr)}
+  .briefs{columns:1}
+  .sec-cols{grid-template-columns:minmax(0,1fr)}
+  .sec-cols>.story{padding:0}
+  .sec-cols>.story+.story{border-left:0;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
   .posts{columns:1}
   .repos{background:none}
   .intro h1{font-size:32px}
@@ -388,38 +411,18 @@ h2 small{color:var(--dim);font-weight:500;font-size:12px;margin-left:6px;letter-
   .thumb{width:84px}
 }
 
-/* Motion. All of it is skipped for readers who ask for reduced motion.
-   - The nameplate inks in on load and the folio rules run out from the centre.
-   - Sections ink in as they scroll into view: the section rule is drawn across,
-     then the stories fade up from a soft blur one after another (class rv/in, set by REVEAL).
-   - Going to another page turns the page (a cross-document view transition).
-   - Switching light and dark rolls fresh ink down the page (see THEME_SCRIPT). */
+/* Motion. The page is otherwise static, like print. The one exception: on the first page
+   of a visit the nameplate inks in and the folio rules run out from the centre (class
+   printed, set in HEAD_SCRIPT, turns it off for later pages). Skipped with reduced motion. */
 @keyframes press{from{opacity:0;filter:blur(7px);transform:scale(1.03)}60%{opacity:1}to{opacity:1;filter:none;transform:none}}
 @keyframes run{from{transform:scaleX(0)}to{transform:scaleX(1)}}
-@keyframes ink{from{opacity:0;filter:blur(3px);transform:translateY(10px)}to{opacity:1;filter:none;transform:none}}
-@keyframes draw{from{background-size:0 3px,0 1px}to{background-size:100% 3px,100% 1px}}
-@keyframes stamp{0%{transform:scale(1)}35%{transform:scale(1.45) rotate(-8deg)}100%{transform:scale(1)}}
-@keyframes leaf-out{0%{transform:perspective(2400px) rotateY(0);filter:none}100%{transform:perspective(2400px) rotateY(-92deg);filter:brightness(.7)}}
-@keyframes leaf-in{0%{filter:brightness(.82)}100%{filter:none}}
-@keyframes wash{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
 @media (prefers-reduced-motion: no-preference){
-  html{scroll-behavior:smooth}
-  .logo{animation:press 1.1s cubic-bezier(.2,.7,.2,1) both}
-  .folio{position:relative}
-  .folio::before,.folio::after{content:"";position:absolute;left:0;right:0;height:1px;background:var(--bg);transform-origin:center;animation:run .9s .15s cubic-bezier(.6,0,.2,1) reverse both}
-  .folio::before{top:-1px}.folio::after{bottom:-4px;height:4px}
-  .rv .story,.rv .pull,.rv .briefs-h{opacity:0}
-  .rv.in .story,.rv.in .pull,.rv.in .briefs-h{animation:ink .75s cubic-bezier(.2,.7,.2,1) calc(var(--i,0) * 45ms + 100ms) both}
-  .rv .sec-h{background-size:0 3px,0 1px}
-  .rv.in .sec-h{animation:draw .7s cubic-bezier(.6,0,.2,1) both}
-  .acts button.stamped svg{animation:stamp .4s cubic-bezier(.2,.7,.2,1)}
-  @view-transition{navigation:auto}
-  ::view-transition-old(root){animation:leaf-out .65s cubic-bezier(.5,0,.3,1) both;transform-origin:0 50%;z-index:2}
-  ::view-transition-new(root){animation:leaf-in .65s ease-out both;z-index:1}
-  :root.inking::view-transition-old(root){animation:none;z-index:1}
-  :root.inking::view-transition-new(root){animation:wash .6s cubic-bezier(.65,0,.35,1) both;z-index:2}
+  :root:not(.printed) .logo{animation:press 1.1s ${EASE_INK} both}
+  :root:not(.printed) .folio{position:relative;border-top-color:transparent;border-bottom-color:transparent}
+  :root:not(.printed) .folio::before,:root:not(.printed) .folio::after{content:"";position:absolute;left:0;right:0;transform-origin:center;animation:run .9s .15s ${EASE_RULE} both}
+  :root:not(.printed) .folio::before{top:-1px;height:1px;background:var(--rule)}
+  :root:not(.printed) .folio::after{bottom:-4px;height:4px;background:linear-gradient(var(--rule) 0 1px,transparent 1px 3px,var(--rule) 3px 4px)}
 }
-@media (prefers-reduced-motion: reduce){.story h3 a,.story h4 a{transition:none}}
 `;
 
 const ICON = {
@@ -432,26 +435,18 @@ const ICON = {
   sun: `<svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`,
 };
 
+// Runs in <head> before first paint: applies the saved light/dark choice, and marks every
+// page after the first one of a visit as "printed" so the nameplate isn't inked again.
+const HEAD_SCRIPT = `<script>try{var r=document.documentElement,t=localStorage.getItem('theme');if(t==='light'||t==='dark')r.dataset.theme=t;if(sessionStorage.getItem('printed'))r.classList.add('printed');else sessionStorage.setItem('printed','1')}catch(e){}</script>`;
 // Light/dark switch. The page follows the device until the reader picks one; the
 // choice is kept in localStorage and applied in <head> before first paint.
-const THEME_HEAD = `<script>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>`;
 const THEME_SCRIPT = `<script>
 (()=>{const b=document.querySelector('.theme');if(!b)return;const r=document.documentElement;
 const dark=()=>r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;
 const label=()=>{const l=dark()?'Switch to light mode':'Switch to dark mode';b.title=l;b.setAttribute('aria-label',l);};
 const flip=()=>{const t=dark()?'light':'dark';r.dataset.theme=t;try{localStorage.setItem('theme',t)}catch(e){}label();};
 label();b.addEventListener('click',()=>{
- if(!document.startViewTransition||matchMedia('(prefers-reduced-motion: reduce)').matches)return flip();
- r.classList.add('inking');document.startViewTransition(flip).finished.finally(()=>r.classList.remove('inking'));});
-})();
-</script>`;
-
-// Sections ink in as they come into view (see Motion in CSS). Without JS, or with
-// reduced motion, nothing is ever hidden.
-const REVEAL = `<script>
-(()=>{if(!('IntersectionObserver' in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-const io=new IntersectionObserver((es)=>{for(const e of es)if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}},{rootMargin:'0px 0px -6% 0px'});
-document.querySelectorAll('.front,.sec').forEach((s)=>{s.querySelectorAll('.story,.pull,.briefs-h').forEach((x,i)=>x.style.setProperty('--i',String(Math.min(i,10))));s.classList.add('rv');io.observe(s);});
+ flip();});
 })();
 </script>`;
 
@@ -477,7 +472,7 @@ document.addEventListener('click',async(e)=>{
  const box=e.target.closest('[data-u]');if(!box)return;
  const b=e.target.closest('button[data-k]');
  if(b){e.preventDefault();const k=b.dataset.k,on=b.getAttribute('aria-pressed')!=='true';
-  b.setAttribute('aria-pressed',String(on));b.classList.toggle('stamped',on&&k!=='hide');
+  b.setAttribute('aria-pressed',String(on));
   if(!(await post(box.dataset.u,k,on))){b.setAttribute('aria-pressed',String(!on));return;}
   if(k==='hide'&&on)hide(box,b);return;}
  if(e.target.closest('a[href]'))opened(box);
@@ -512,7 +507,7 @@ function page(title: string, body: string, o: PageOpts = {}): string {
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,900;1,600&family=UnifrakturMaguntia&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='2' fill='%23121212'/%3E%3Ctext x='8' y='12.5' font-family='Georgia,serif' font-weight='700' font-size='12' text-anchor='middle' fill='%23fbfaf6'%3ET%3C/text%3E%3C/svg%3E">
-${THEME_HEAD}${o.head ?? ""}<style>${CSS}</style></head><body>
+${HEAD_SCRIPT}${o.head ?? ""}<style>${CSS}</style></head><body>
 <header class="mast${o.big ? "" : " small"}"><div class="wrap" style="padding-bottom:0">
 <div class="util"><span class="util-l"><a href="/">Today's paper</a> · <a href="/archive">Archive</a></span>${tools(view, o.here ?? "")}</div>
 <div class="plate">${ears[0]}<a class="logo" href="/">${esc(MASTHEAD)}</a>${ears[1]}</div>
@@ -525,7 +520,7 @@ ${body}
 <a href="/archive">archive</a> · <a href="/search">search</a> · <a href="/trends">trends</a> · <a href="/feed.xml">rss</a> · <a href="/api/latest.json">json</a> · ${
     view.signedIn ? `<a href="/saved">saved</a> · <a href="/logout">sign out</a>` : `<a href="/login">sign in</a>`
   } · <a href="https://tseku.dev">tseku.dev</a></footer>
-</main>${THEME_SCRIPT}${REVEAL}${view.signedIn ? SCRIPT : ""}</body></html>`;
+</main>${THEME_SCRIPT}${view.signedIn ? SCRIPT : ""}</body></html>`;
 }
 
 function srcName(it: Item): string {
@@ -551,9 +546,9 @@ function meta(it: Ranked, withHost = true): string {
   const bits: string[] = [];
   if (it.meta) bits.push(`<span class="rt">${esc(it.meta)}</span>`);
   if (withHost && !sameAsSource(it)) bits.push(esc(host(it.url)));
-  if (it.also?.length) bits.push(`also in ${it.also.map((s) => esc(srcById.get(s)?.name ?? s)).join(", ")}`);
-  if (it.related?.length) bits.push(`also covered by ${it.related.map((s) => esc(srcById.get(s)?.name ?? s)).join(", ")}`);
-  if (it.discuss && it.discuss !== it.url) bits.push(`<a href="${esc(it.discuss)}" target="_blank" rel="noopener">discuss</a>`);
+  if (it.also?.length) bits.push(`Also in ${it.also.map((s) => esc(srcById.get(s)?.name ?? s)).join(", ")}`);
+  if (it.related?.length) bits.push(`Also covered by ${it.related.map((s) => esc(srcById.get(s)?.name ?? s)).join(", ")}`);
+  if (it.discuss && it.discuss !== it.url) bits.push(`<a href="${esc(it.discuss)}" target="_blank" rel="noopener">Discussion</a>`);
   return `<div class="meta">${bits.join(" · ")}</div>`;
 }
 
@@ -614,21 +609,21 @@ function row(it: Ranked, view: View, extra = ""): string {
   }${acts(it, view)}</div>`;
 }
 
-// The rest of a section, after its lead and side column: compact briefs in three ruled
-// columns. Headline, one or two lines of summary, the source, and a small square picture.
+// The rest of a section, after its lead and side column: text-only briefs flowing down
+// three ruled columns. Headline, one or two lines of summary, and the source.
 function brief(it: Ranked, view: View): string {
   const m = markAttrs(it, view);
   const text = it.brief ?? it.summary;
-  return `<article class="brief story t-${it.topic}${it.image ? "" : " no-pic"}${m.cls}"${m.data}><div class="brief-text">${headline(it, "h4")}${
+  return `<article class="brief story t-${it.topic}${m.cls}"${m.data}><div class="brief-text">${headline(it, "h4")}${
     text ? `<p>${esc(text)}</p>` : ""
   }<div class="foot"><div class="meta">${esc(srcName(it))}${it.meta ? ` · <span class="rt">${esc(it.meta)}</span>` : ""}${
     sameAsSource(it) ? "" : ` · ${esc(host(it.url))}`
-  }</div>${acts(it, view)}</div></div>${it.image ? pic(it) : ""}</article>`;
+  }</div>${acts(it, view)}</div></div></article>`;
 }
 
 function briefs(list: Ranked[], label: string, view: View): string {
   return list.length
-    ? `<div class="briefs"><h3 class="briefs-h">More in ${esc(label)}</h3>${list.map((it) => brief(it, view)).join("")}</div>`
+    ? `<div class="briefs"><h3 class="briefs-h">In brief: ${esc(label)}</h3>${list.map((it) => brief(it, view)).join("")}</div>`
     : "";
 }
 
@@ -649,6 +644,7 @@ function storyRows(rows: StoryRow[], view: View): string {
 // side column next to it; the side column holds three more and the rest follow as rows underneath.
 const PAIR = 2;
 const SIDE_ROWS = 3;
+const SHORT = 3;
 
 export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, view: View = PUBLIC): string {
   const all = rank(ed.items, Date.parse(ed.generatedAt), view.personal, coverage(ed.items, view.cover)).filter(
@@ -699,12 +695,20 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
     .map(({ t, total }) => `<a href="#${t.id}">${esc(t.label)}<small>${total}</small></a>`)
     .join("");
 
+  // Sections with a picture lead alternate which side their rail sits on, as pages do in print.
+  let full = 0;
   const sections = topics
     .filter((x) => x.list.length)
     .map(({ t, list, total }) => {
       const pg = `<span class="pg">Section ${pages.get(t.id) ?? ""}</span>`;
       if (t.id === "posts") return postsSection(list, view, pg);
       if (t.id === "repos") return reposSection(list, view, pg);
+      const head2 = `<h2 class="sec-h">${esc(t.label)} <small>${total} ${total === 1 ? "story" : "stories"}</small>${pg}<a class="top" href="#">Top ↑</a></h2>`;
+      // A short section (three stories or fewer) runs as text columns, the first in larger type.
+      if (list.length <= SHORT) {
+        return `<section id="${t.id}" class="sec t-${t.id}">${head2}
+<div class="sec-cols" style="--n:${list.length}">${list.map((it, i) => story(it, { pic: "none", big: i === 0 && list.length > 1 }, view)).join("")}</div></section>`;
+      }
       // Lead with the best story that has a picture, if one is near the top.
       const li = list.slice(0, 3).findIndex((it) => it.image);
       const items = li > 0 ? [list[li], ...list.filter((_, i) => i !== li)] : list;
@@ -736,8 +740,9 @@ export function renderEdition(ed: Edition, dates: string[], isLatest: boolean, v
       const more = hidden.length
         ? briefs(hidden, t.label, view)
         : "";
-      return `<section id="${t.id}" class="sec t-${t.id}"><h2 class="sec-h">${esc(t.label)} <small>${total} ${total === 1 ? "story" : "stories"}</small>${pg}<a class="top" href="#">Top ↑</a></h2>
-<div class="sec-grid${col ? "" : " solo"}"><div class="sec-main">${lead(head, false, view)}${
+      const flip = col && full++ % 2 === 1 ? " flip" : "";
+      return `<section id="${t.id}" class="sec t-${t.id}">${head2}
+<div class="sec-grid${col ? flip : " solo"}"><div class="sec-main">${lead(head, false, view)}${
         pair.length ? `<div class="trio pair">${pair.map((it) => story(it, {}, view)).join("")}</div>` : ""
       }</div>${col}</div>${more}</section>`;
     })
