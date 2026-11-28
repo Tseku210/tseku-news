@@ -1,5 +1,5 @@
 import { SOURCES, type Source } from "./sources";
-import { metaImage, pageText, parseFeed, parseHn, parseLinks, parseTldrIssue, parseUnread, type Item } from "./parse";
+import { metaImage, pageText, parseFeed, parseHn, parseLinks, parseGithubTrending, parseTldrIssue, parseUnread, type Item } from "./parse";
 import {
   renderArchive, renderBuilding, renderEdition, renderFeed, renderLogin, renderNotFound, renderSaved, renderSearch, renderTrends, type View,
 } from "./render";
@@ -76,6 +76,9 @@ async function collectSource(src: Source, seen: Set<string>, now: number, env: E
       break;
     case "unread":
       items = parseUnread(await get(src.url, "text/html"), src.id, 40);
+      break;
+    case "github":
+      items = parseGithubTrending(await get(src.url, "text/html"), src.id, 25);
       break;
     case "social": {
       // X and Bluesky side by side; the account only fails when every place it is read from fails.
@@ -157,7 +160,11 @@ async function readPages(
   return texts;
 }
 
-const isPost = (it: Item) => SOURCES.find((s) => s.id === it.source)?.kind === "social";
+// Posts and trending repos are shown as they come: no page visit for a picture or text to summarise.
+const isPost = (it: Item) => {
+  const kind = SOURCES.find((s) => s.id === it.source)?.kind;
+  return kind === "social" || kind === "github";
+};
 
 async function readJson<T>(env: Env, key: string, fallback: T): Promise<T> {
   const v = await env.NEWS.get(key, "json");

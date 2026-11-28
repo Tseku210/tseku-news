@@ -6,14 +6,16 @@
 //   launchpad launchpad.mn home page (weekly Mongolian product launches; it has no feed)
 //   ikon      ikon.mn technology section page (Mongolian tech news)
 //   unread    unread.today home page (Mongolian long-form media; it has no feed)
+//   github    github.com/trending page (no feed or API): today's fastest-rising repositories,
+//             shown in their own section (no page visit, no AI summary: the description is enough)
 //   social    one person's posts: X (embed timeline) plus Bluesky when they have it. See social.ts
 
-export type Topic = "ai" | "dev" | "startups" | "tech" | "mongolia" | "blogs" | "posts";
+export type Topic = "ai" | "dev" | "startups" | "tech" | "mongolia" | "blogs" | "repos" | "posts";
 
 export interface Source {
   id: string;
   name: string;
-  kind: "rss" | "tldr" | "hn" | "launchpad" | "ikon" | "unread" | "social";
+  kind: "rss" | "tldr" | "hn" | "launchpad" | "ikon" | "unread" | "github" | "social";
   url: string;
   topic: Topic;
   max: number; // most items taken from this source per day
@@ -29,6 +31,7 @@ export const TOPICS: { id: Topic; label: string }[] = [
   { id: "tech", label: "Technology" },
   { id: "mongolia", label: "Mongolia" },
   { id: "blogs", label: "Blogs" },
+  { id: "repos", label: "Trending repos" },
   { id: "posts", label: "Posts" },
 ];
 
@@ -43,6 +46,7 @@ export const SOURCES: Source[] = [
   // Software development
   { id: "tldr-dev", name: "TLDR Dev", kind: "tldr", url: "https://tldr.tech/api/rss/webdev", topic: "dev", max: 12, weight: 1.3 },
   { id: "github-blog", name: "GitHub Blog", kind: "rss", url: "https://github.blog/feed/", topic: "dev", max: 4, weight: 1.0 },
+  { id: "gh-trending", name: "GitHub Trending", kind: "github", url: "https://github.com/trending?since=daily", topic: "repos", max: 10, weight: 1 },
   { id: "pragmatic", name: "The Pragmatic Engineer", kind: "rss", url: "https://blog.pragmaticengineer.com/rss/", topic: "dev", max: 3, weight: 1.3 },
 
   // Startups
