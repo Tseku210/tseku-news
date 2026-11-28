@@ -13,6 +13,7 @@ export interface Item {
   image?: string; // https thumbnail from the feed or the page's og:image
   also?: string[]; // other Source.ids that carried the same link (a ranking signal)
   by?: string; // author of a social post (display name)
+  avatar?: string; // author's profile picture (social posts)
 }
 
 const ENTITIES: Record<string, string> = {

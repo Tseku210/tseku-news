@@ -17,7 +17,8 @@ const BROWSER_UA =
 const MAX_TEXT = 400;
 
 function tidy(s: string): string {
-  const t = decodeEntities(s).replace(/\s+/g, " ").trim();
+  // Keep the post's line breaks (at most one blank line); tidy everything else.
+  const t = decodeEntities(s).replace(/[^\S\n]+/g, " ").replace(/ ?\n ?/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
   return t.length > MAX_TEXT ? t.slice(0, MAX_TEXT).replace(/\s+\S*$/, "") + "…" : t;
 }
 
@@ -42,7 +43,7 @@ export function parseBsky(json: string, source: string): Item[] {
     feed?: {
       post?: {
         uri?: string;
-        author?: { handle?: string; displayName?: string };
+        author?: { handle?: string; displayName?: string; avatar?: string };
         record?: { text?: string; createdAt?: string; reply?: unknown };
         embed?: BskyEmbed;
       };
@@ -66,6 +67,7 @@ export function parseBsky(json: string, source: string): Item[] {
       source,
       by: p.author?.displayName || handle,
       meta: `@${handle}`,
+      avatar: imageUrl(p.author?.avatar),
       image: imageUrl(e?.images?.[0]?.thumb ?? e?.media?.images?.[0]?.thumb ?? e?.external?.thumb),
     });
   }
@@ -84,7 +86,7 @@ interface Tweet {
   created_at?: string;
   full_text?: string;
   text?: string;
-  user?: { screen_name?: string; name?: string };
+  user?: { screen_name?: string; name?: string; profile_image_url_https?: string };
   retweeted_status?: unknown;
   in_reply_to_status_id_str?: string | null;
   entities?: { urls?: { url?: string; expanded_url?: string; display_url?: string }[]; media?: { url?: string; media_url_https?: string }[] };
@@ -138,6 +140,7 @@ export function parseXTimeline(html: string, handle: string, source: string): It
       source,
       by: t.user?.name || name,
       meta: `@${name}`,
+      avatar: imageUrl(t.user?.profile_image_url_https),
       image: imageUrl(media[0]?.media_url_https ?? t.mediaDetails?.[0]?.media_url_https),
     });
   }

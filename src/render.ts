@@ -166,11 +166,22 @@ details.more summary:hover{color:var(--fg)}
 /* Rows: compact stories in lists (more, search, saved) */
 .list{display:flex;flex-direction:column}
 .list>.row:first-child{border-top:0}
-.posts .post{padding:14px 0;border-top:1px solid var(--line)}
-.post p{font:400 15.5px/1.45 ${SERIF};margin:0 0 8px;overflow-wrap:anywhere}
+.posts{display:block;columns:3;column-gap:20px;margin-top:14px}
+.post{break-inside:avoid;margin:0 0 20px;padding:14px 16px 12px;border:1px solid var(--line);border-top:3px double var(--rule);background:var(--bg)}
+.post header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.post .face{position:relative;flex:none;width:38px;height:38px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:var(--chip);border:1px solid var(--line);font:italic 700 17px/1 ${DISPLAY};color:var(--muted)}
+.post .face img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:grayscale(1) contrast(1.05);transition:filter .2s}
+.post:hover .face img{filter:none}
+.post .who{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.2}
+.post .who b{font:700 15px/1.25 ${SERIF};color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.post .who span{font:500 11.5px/1.3 ${SANS};color:var(--dim);letter-spacing:.02em}
+.post .net{flex:none;align-self:flex-start;font:600 10.5px/1.6 ${SANS};letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.post p{font:400 16px/1.5 ${SERIF};margin:0 0 10px;white-space:pre-line;overflow-wrap:anywhere}
 .post p a{color:var(--fg);text-decoration:none}
-.post p a:hover{text-decoration:underline}
-.post .pic{aspect-ratio:16/9;margin:0 0 8px}
+.post p a:hover{text-decoration:underline;text-underline-offset:3px}
+.post .pic{aspect-ratio:16/9;margin:0 0 10px;border:1px solid var(--line)}
+.post .foot{padding-top:8px;border-top:1px solid var(--line)}
+.post .meta a{position:static}
 .row{display:flex;gap:14px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
 .cols3 .row{border-top:1px solid var(--line)}
 .row .row-text{flex:1;min-width:0}
@@ -264,6 +275,7 @@ h2 small{color:var(--dim);font-weight:500;font-size:12px;margin-left:6px;letter-
   .front-side>.story+.story{margin-top:0}
   .front-side>.story:nth-child(2){border-top:0;padding-top:0}
   .cols3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .posts{columns:2}
   .logo{font-size:46px}
 }
 @media (max-width:640px){
@@ -294,6 +306,7 @@ h2 small{color:var(--dim);font-weight:500;font-size:12px;margin-left:6px;letter-
   .front-side>.story:first-child h3{font-size:21px}
   .story h3{font-size:19px}
   .cols3{grid-template-columns:minmax(0,1fr)}
+  .posts{columns:1}
   .intro h1{font-size:32px}
   .spark{grid-template-columns:100px minmax(0,1fr) 34px;gap:8px}
   .axis{margin:2px 42px 0 108px}
@@ -590,9 +603,13 @@ function postAgo(iso?: string): string {
 function post(it: Ranked, view: View): string {
   const m = markAttrs(it, view);
   const on = /bsky\.app/.test(it.url) ? "Bluesky" : "X";
-  return `<article class="post story${m.cls}"${m.data}><div class="kick">${esc(it.by ?? srcName(it))} <span>${esc(it.meta ?? "")}</span></div>
+  const name = it.by ?? srcName(it);
+  const face = `<span class="face" aria-hidden="true">${esc([...name][0]?.toUpperCase() ?? "?")}${
+    it.avatar ? `<img src="${esc(it.avatar)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ""
+  }</span>`;
+  return `<article class="post story${m.cls}"${m.data}><header>${face}<div class="who"><b>${esc(name)}</b><span>${esc(it.meta ?? "")}</span></div><span class="net">${on === "X" ? "𝕏" : "Bluesky"}</span></header>
 <p><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title)}</a></p>${it.image ? pic(it) : ""}
-<div class="foot"><div class="meta">${esc([postAgo(it.date), `on ${on}`].filter(Boolean).join(" · "))}</div>${acts(it, view)}</div></article>`;
+<div class="foot"><div class="meta">${esc(postAgo(it.date))}${it.date ? " · " : ""}<a href="${esc(it.url)}" target="_blank" rel="noopener">view on ${on} ↗</a></div>${acts(it, view)}</div></article>`;
 }
 
 function postsSection(list: Ranked[], view: View): string {
@@ -600,9 +617,9 @@ function postsSection(list: Ranked[], view: View): string {
   const shown = posts.slice(0, POSTS_SHOWN);
   const rest = posts.slice(POSTS_SHOWN);
   return `<section id="posts" class="sec t-posts"><h2 class="sec-h">Posts <small>${posts.length} from people you follow</small><a class="top" href="#">Top ↑</a></h2>
-<div class="cols3 posts">${shown.map((it) => post(it, view)).join("")}</div>${
+<div class="posts">${shown.map((it) => post(it, view)).join("")}</div>${
     rest.length
-      ? `<details class="more"><summary>${rest.length} more posts</summary><div class="cols3 posts">${rest.map((it) => post(it, view)).join("")}</div></details>`
+      ? `<details class="more"><summary>${rest.length} more posts</summary><div class="posts">${rest.map((it) => post(it, view)).join("")}</div></details>`
       : ""
   }</section>`;
 }
