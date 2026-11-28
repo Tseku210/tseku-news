@@ -332,3 +332,31 @@ export function parseUnread(html: string, sourceId: string, max: number): Item[]
   }
   return out;
 }
+
+// github.com/trending (no API or feed). Each repo is an <article class="Box-row"> with
+// the repo link in its <h2>, the description in the first <p>, the language, and
+// "1,234 stars today". No date: a repo shows once and the seen list keeps it from
+// coming back while it stays on the list.
+export function parseGithubTrending(html: string, sourceId: string, max: number): Item[] {
+  const out: Item[] = [];
+  for (const block of html.split(/<article\b[^>]*class="[^"]*Box-row/i).slice(1)) {
+    const h2 = /<h2\b[\s\S]*?<\/h2>/i.exec(block)?.[0] ?? "";
+    const href = /href="(\/[\w.-]+\/[\w.-]+)"/.exec(h2)?.[1];
+    if (!href) continue;
+    const url = normalizeUrl(href, "https://github.com");
+    if (!url) continue;
+    const name = href.slice(1);
+    const desc = clean(/<p\b[^>]*>([\s\S]*?)<\/p>/i.exec(block)?.[1], 300);
+    const lang = clean(/itemprop="programmingLanguage"[^>]*>([^<]*)</i.exec(block)?.[1]);
+    const stars = /([\d,]+)\s+stars?\s+(today|this week|this month)/i.exec(stripTags(block));
+    out.push({
+      title: name.replace("/", " / "),
+      url,
+      summary: desc || undefined,
+      source: sourceId,
+      meta: [stars ? `★ ${stars[1]} ${stars[2].toLowerCase()}` : "", lang].filter(Boolean).join(" · ") || undefined,
+    });
+    if (out.length >= max) break;
+  }
+  return out;
+}

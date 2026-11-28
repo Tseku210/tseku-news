@@ -1,5 +1,5 @@
 import { SOURCES, type Source } from "./sources";
-import { metaImage, pageText, parseFeed, parseHn, parseLinks, parseTldrIssue, parseUnread, type Item } from "./parse";
+import { metaImage, pageText, parseFeed, parseHn, parseLinks, parseGithubTrending, parseTldrIssue, parseUnread, type Item } from "./parse";
 import {
   renderArchive, renderBuilding, renderEdition, renderFeed, renderLogin, renderNotFound, renderSaved, renderSearch, renderTrends, type View,
 } from "./render";
@@ -76,6 +76,9 @@ async function collectSource(src: Source, seen: Set<string>, now: number, env: E
       break;
     case "unread":
       items = parseUnread(await get(src.url, "text/html"), src.id, 40);
+      break;
+    case "github":
+      items = parseGithubTrending(await get(src.url, "text/html"), src.id, 25);
       break;
     case "social": {
       // X and Bluesky side by side; the account only fails when every place it is read from fails.
