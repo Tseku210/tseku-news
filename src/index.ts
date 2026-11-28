@@ -6,6 +6,7 @@ import {
 import { backfill, ensureIndexed, listMarked, marksFor, marksForUrls, pruneOld, readsByTopic, search, setMark, signalStats, type MarkKind } from "./db";
 import { isSignedIn, sameOrigin, signIn, signOutCookie } from "./auth";
 import { computeTrends } from "./trends";
+import { addVectors, computeFit, forgetTaste, getCover, getFit, getTaste, personalize, tasteSummary } from "./taste";
 import { addBriefs, cachedBriefs } from "./summarize";
 import { bskyFeedUrl, fetchXTimeline, mergePosts, parseBsky, parseXTimeline } from "./social";
 
@@ -213,6 +214,13 @@ export async function runDaily(env: Env, date: string, now: number): Promise<Edi
   } catch (e) {
     console.error("indexing failed", e);
   }
+  // Personal ranking: embed the stories and score them against what was liked and hidden.
+  try {
+    await addVectors(env, edition, now);
+    await computeFit(env, edition, now);
+  } catch (e) {
+    console.error("similarity failed", e);
+  }
   // Keep 90 days of stories (liked and saved ones are kept for good).
   try {
     const pruned = await pruneOld(env, date);
@@ -332,11 +340,14 @@ export default {
       const ed = await readJson<Edition | null>(env, `edition:${day[1]}`, null);
       if (!ed) return html(renderNotFound(), 60, undefined, path === "/" ? 200 : 404);
       const dates = await readJson<string[]>(env, "dates", []);
-      const view: View = { signedIn };
+      const view: View = { signedIn, cover: await getCover(env, ed.date), all: url.searchParams.has("all") };
       if (signedIn) {
         // Stories must be in D1 before they can be marked (covers editions from before D1).
         await ensureIndexed(env, ed);
-        view.marks = await marksFor(env, ed.date);
+        const [marks, taste, fit] = await Promise.all([marksFor(env, ed.date), getTaste(env, Date.now()), getFit(env, ed.date)]);
+        view.marks = marks;
+        // Only signed-in pages are personalised (and they are never cached), so visitors keep the default order.
+        if (taste) view.personal = (it, topic) => personalize(it, topic, taste, fit[it.url]);
       }
       return html(renderEdition(ed, dates, day[1] === latest, view), path === "/" ? 300 : 3600, view);
     }
@@ -360,10 +371,10 @@ export default {
       if (!signedIn) return new Response(null, { status: 303, headers: { location: "/login" } });
       const tab = url.searchParams.get("tab") === "liked" ? "liked" : "saved";
       const rows = await listMarked(env, tab === "liked" ? "like" : "save");
-      const stats = await signalStats(env);
+      const [stats, taste] = await Promise.all([signalStats(env), getTaste(env, Date.now())]);
       const view: View = { signedIn, marks: rows.length ? await marksForUrls(env, rows.map((x) => x.url)) : undefined };
       return html(
-        renderSaved(tab, rows, stats, view),
+        renderSaved(tab, rows, stats, view, taste ? tasteSummary(taste) : null),
         0,
         view,
       );
@@ -412,6 +423,7 @@ async function post(req: Request, env: Env, path: string, signedIn: boolean): Pr
     if (typeof url !== "string" || url.length > 2048 || !KINDS.has(kind as MarkKind) || typeof on !== "boolean")
       return new Response("Bad request", { status: 400 });
     const ok = await setMark(env, url, kind as MarkKind, on, Date.now());
+    if (ok) await forgetTaste(env); // rebuilt on the next page view
     return new Response(null, { status: ok ? 204 : 404 });
   }
 

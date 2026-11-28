@@ -12,7 +12,7 @@ show ask tell launch launches launched hn pdf video guide how-to ships ship ship
 introducing introduces announces announced unveils lets gets big small best better top way ways things need want why`.split(/\s+/),
 );
 
-function words(title: string): Set<string> {
+export function words(title: string): Set<string> {
   const out = new Set<string>();
   for (const m of title.toLowerCase().matchAll(/[\p{L}\p{N}][\p{L}\p{N}.+#-]*[\p{L}\p{N}+#]|[\p{L}]{3,}/gu)) {
     const w = m[0];
